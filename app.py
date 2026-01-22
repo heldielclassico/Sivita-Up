@@ -8,10 +8,9 @@ import numpy as np
 from typing import List, Dict
 from dotenv import load_dotenv
 
-# Import terbaru sesuai standar LangChain v0.1+
+# Import LangChain v0.1+
 from langchain_openai import ChatOpenAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-# Catatan: Kita menggunakan sentence-transformers lokal untuk efisiensi biaya
 from sentence_transformers import SentenceTransformer
 import faiss
 
@@ -19,205 +18,158 @@ import faiss
 load_dotenv()
 
 # 2. Konfigurasi Halaman
-st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
+st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="wide")
 
-# --- 3. SCREEN LOADER ---
-if "loaded" not in st.session_state:
-    placeholder = st.empty()
-    with placeholder.container():
-        st.markdown("""
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh;">
-                <h1 style="color: #0e1117; font-family: sans-serif;">🎓 Sivita</h1>
-                <p style="color: #555;">Menyiapkan Asisten Virtual Poltesa...</p>
-                <div class="loader"></div>
-            </div>
-            <style>
-                .loader {
-                    border: 4px solid #f3f3f3;
-                    border-top: 4px solid #3498db;
-                    border-radius: 50%;
-                    width: 80px;
-                    height: 80px;
-                    animation: spin 1s linear infinite;
-                    margin-top: 20px;
-                }
-                @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-            </style>
-        """, unsafe_allow_html=True)
-        time.sleep(3) # Loader 3 detik agar tidak terlalu lama
-    placeholder.empty()
-    st.session_state["loaded"] = True
+# --- 3. FUNGSI UTAMA ---
 
-# --- 4. INISIALISASI SESSION STATE ---
-if "last_answer" not in st.session_state:
-    st.session_state["last_answer"] = ""
-if "last_duration" not in st.session_state:
-    st.session_state["last_duration"] = 0
-if "vector_store" not in st.session_state:
-    st.session_state.vector_store = None
-if "chunks" not in st.session_state:
-    st.session_state.chunks = []
-
-# --- FUNGSI VALIDASI EMAIL ---
 def is_valid_email(email):
-    pattern = r'^[a-zA-Z0-9._%+-]+@gmail\.com$'
-    return re.match(pattern, email) is not None
+    return re.match(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', email) is not None
 
-# --- FUNGSI CHUNKING ---
-def create_chunks(text: str, chunk_size: int = 800, chunk_overlap: int = 100) -> List[str]:
+def create_chunks(text: str):
+    # Menggunakan separator yang lebih cerdas agar data tabel tidak terpotong sembarangan
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap,
-        length_function=len,
-        separators=["\n\n", "\n", ". ", " ", ""]
+        chunk_size=1000,
+        chunk_overlap=150,
+        separators=["\n### ", "\n\n", "\n", ". ", " "]
     )
     return text_splitter.split_text(text)
 
-# --- FUNGSI: AMBIL & PROSES DATA ---
+@st.cache_data(show_spinner=False)
 def get_and_process_data():
+    """Mengambil data dari Google Sheets dan memecahnya menjadi chunks."""
     try:
         central_url = st.secrets["SHEET_CENTRAL_URL"]
         df_list = pd.read_csv(central_url)
         tab_names = df_list['NamaTab'].tolist()
         base_url = central_url.split('/export')[0]
         
-        all_data = []
+        all_chunks = []
         for tab in tab_names:
             tab_url = f"{base_url}/gviz/tq?tqx=out:csv&sheet={tab.replace(' ', '%20')}"
             try:
                 df = pd.read_csv(tab_url)
-                text_data = f"### DATA {tab.upper()} ###\n"
+                # Ubah setiap baris menjadi teks deskriptif agar mudah dicari secara semantik
                 for idx, row in df.iterrows():
-                    row_text = ", ".join([f"{col}: {val}" for col, val in row.items() if pd.notna(val)])
-                    text_data += f"- {row_text}\n"
-                all_data.append(text_data)
-            except Exception: continue
-        
-        combined_text = "\n\n".join(all_data)
-        chunks = create_chunks(combined_text)
-        
-        chunk_metadata = [{"chunk_id": i, "text": chunk, "source": "google_sheets"} for i, chunk in enumerate(chunks)]
-        return chunk_metadata
+                    row_content = f"Data {tab}: " + ", ".join([f"{col} adalah {val}" for col, val in row.items() if pd.notna(val)])
+                    all_chunks.append({"text": row_content, "source": tab})
+            except Exception:
+                continue
+        return all_chunks
     except Exception as e:
-        st.error(f"Gagal memproses data: {e}")
+        st.error(f"Koneksi ke Google Sheets Gagal: {e}")
         return []
 
-# --- FUNGSI: BUAT VECTOR STORE ---
-def create_vector_store(chunks: List[Dict]):
+def create_vector_store(chunks_data: List[Dict]):
+    """Memasukkan chunks ke dalam FAISS Vector Database."""
     try:
-        # Menggunakan model multilingual yang ringan dan gratis
         model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-        texts = [chunk["text"] for chunk in chunks]
+        texts = [c["text"] for c in chunks_data]
         embeddings = model.encode(texts, normalize_embeddings=True)
         
-        embeddings_array = np.array(embeddings).astype('float32')
-        dimension = embeddings_array.shape[1]
+        dimension = embeddings.shape[1]
         index = faiss.IndexFlatIP(dimension) 
+        faiss.normalize_L2(embeddings)
+        index.add(embeddings.astype('float32'))
         
-        faiss.normalize_L2(embeddings_array)
-        index.add(embeddings_array)
-        
-        return {"index": index, "chunks": chunks, "model": model}
+        return {"index": index, "chunks": chunks_data, "model": model}
     except Exception as e:
-        st.error(f"Error Vector Store: {e}")
+        st.error(f"Gagal memproses Vector Store: {e}")
         return None
 
-# --- FUNGSI: SEMANTIC SEARCH ---
-def semantic_search(query: str, vector_store: Dict, top_k: int = 3):
-    query_embedding = vector_store["model"].encode([query], normalize_embeddings=True)
-    query_embedding = np.array(query_embedding).astype('float32')
-    faiss.normalize_L2(query_embedding)
+def semantic_search(query: str, vector_store: Dict, top_k: int = 5):
+    """Mencari data paling relevan berdasarkan makna kata."""
+    query_vec = vector_store["model"].encode([query], normalize_embeddings=True)
+    faiss.normalize_L2(query_vec)
+    distances, indices = vector_store["index"].search(query_vec.astype('float32'), top_k)
     
-    distances, indices = vector_store["index"].search(query_embedding, top_k)
-    return [vector_store["chunks"][idx]["text"] for idx in indices[0] if idx < len(vector_store["chunks"])]
+    results = []
+    for idx in indices[0]:
+        if idx < len(vector_store["chunks"]):
+            results.append(vector_store["chunks"][idx]["text"])
+    return results
 
-# --- FUNGSI: SIMPAN LOG ---
-def save_to_log(email, question, answer, duration):
-    try:
-        log_url = st.secrets["LOG_URL"]
-        payload = {"email": email, "question": question, "answer": answer, "duration": f"{duration}s"}
-        requests.post(log_url, json=payload, timeout=5)
-    except: pass
+# --- 4. LOGIC INISIALISASI ---
 
-# --- INITIAL LOAD ---
-if "data_initialized" not in st.session_state:
-    with st.spinner("📥 Sinkronisasi Database Poltesa..."):
-        chunks = get_and_process_data()
-        if chunks:
-            vs = create_vector_store(chunks)
-            st.session_state.vector_store = vs
-            st.session_state.chunks = chunks
-            st.session_state.data_initialized = True
+if "vector_store" not in st.session_state:
+    st.session_state.vector_store = None
+if "last_answer" not in st.session_state:
+    st.session_state["last_answer"] = ""
 
-# --- UI LOGIC ---
-def clear_text():
-    st.session_state["user_input"] = ""
+# Tombol Sinkronisasi di Sidebar
+with st.sidebar:
+    st.title("⚙️ Kontrol Database")
+    if st.button("🔄 Sinkronkan Ulang Google Sheets"):
+        st.cache_data.clear()
+        st.session_state.vector_store = None
+        st.rerun()
+    
+    st.divider()
+    
+    # Loader Data
+    if st.session_state.vector_store is None:
+        with st.spinner("Mengunduh data Poltesa..."):
+            raw_data = get_and_process_data()
+            if raw_data:
+                st.session_state.vector_store = create_vector_store(raw_data)
+                st.success(f"Berhasil memuat {len(raw_data)} baris data.")
+    
+    # Fitur Cek Data (Menjawab pertanyaan user: "Bagaimana cara tahu data sudah masuk?")
+    if st.session_state.vector_store:
+        st.subheader("🔍 Inspeksi Database")
+        search_test = st.text_input("Tes cari kata di DB:", placeholder="Contoh: dosen")
+        if search_test:
+            matches = semantic_search(search_test, st.session_state.vector_store, top_k=3)
+            for m in matches:
+                st.caption(f"📍 {m}")
 
-def generate_response_with_rag(user_email, user_input):
-    start_time = time.time()
-    try:
-        # Search relevant info
-        relevant_chunks = semantic_search(user_input, st.session_state.vector_store)
-        context = "\n".join(relevant_chunks)
-        
-        # OpenRouter / Gemini Config
-        model = ChatOpenAI(
-            model="google/gemini-2.0-flash-lite-001",
-            openai_api_key=st.secrets["OPENROUTER_API_KEY"],
-            openai_api_base="https://openrouter.ai/api/v1",
-            temperature=0.3
-        )
-        
-        prompt = f"{st.secrets['SYSTEM_PROMPT']}\n\nCONTEXT:\n{context}\n\nPERTANYAAN: {user_input}\n\nJAWABAN:"
-        
-        response = model.invoke(prompt)
-        duration = round(time.time() - start_time, 2)
-        
-        st.session_state["last_answer"] = response.content
-        st.session_state["last_duration"] = duration
-        save_to_log(user_email, user_input, response.content, duration)
+# --- 5. ANTARMUKA UTAMA ---
+
+st.title("🎓 Asisten Virtual Poltesa (Sivita)")
+st.info("Tanyakan informasi seputar jumlah mahasiswa, dosen, jurusan, atau fasilitas Poltesa.")
+
+with st.container(border=True):
+    email = st.text_input("Konfirmasi Email Gmail:", placeholder="user@gmail.com")
+    user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Contoh: Berapa jumlah dosen di Poltesa?")
+    
+    if st.button("Tanyakan ke Sivita 🚀", use_container_width=True):
+        if not is_valid_email(email):
+            st.error("Gunakan Gmail yang valid!")
+        elif not user_query:
+            st.warning("Masukkan pertanyaan Anda.")
+        else:
+            with st.spinner("Sivita sedang berpikir..."):
+                start_time = time.time()
                 
-    except Exception as e:
-        st.error(f"Terjadi kendala teknis. Silakan coba lagi. ({e})")
+                # 1. Cari data di Vector DB
+                context_list = semantic_search(user_query, st.session_state.vector_store)
+                context_text = "\n".join(context_list)
+                
+                # 2. Kirim ke AI (OpenRouter)
+                try:
+                    llm = ChatOpenAI(
+                        model="google/gemini-2.0-flash-lite-001",
+                        openai_api_key=st.secrets["OPENROUTER_API_KEY"],
+                        openai_api_base="https://openrouter.ai/api/v1",
+                        temperature=0.1 # Rendah agar AI tidak mengarang
+                    )
+                    
+                    system_prompt = st.secrets["SYSTEM_PROMPT"]
+                    full_prompt = f"{system_prompt}\n\nREFERENSI DATA:\n{context_text}\n\nPERTANYAAN: {user_query}"
+                    
+                    response = llm.invoke(full_prompt)
+                    st.session_state["last_answer"] = response.content
+                    
+                    # Simpan Log (Optional)
+                    duration = round(time.time() - start_time, 2)
+                    log_payload = {"email": email, "query": user_query, "answer": response.content, "time": duration}
+                    requests.post(st.secrets["LOG_URL"], json=log_payload, timeout=2)
+                    
+                except Exception as e:
+                    st.error(f"Gagal menghubungi otak AI: {e}")
 
-# --- UI LAYOUT ---
-st.markdown("""
-    <style>
-    .stTextArea textarea { border-radius: 12px; }
-    .stTextInput input { border-radius: 12px; }
-    .stButton button { border-radius: 25px; background-color: #3498db; color: white; }
-    .duration-info { font-size: 0.8rem; color: gray; font-style: italic; }
-    </style>
-    """, unsafe_allow_html=True)
-
-st.title("🎓 Asisten Virtual Poltesa")
-st.caption("Sivita v1.0 - Berbasis Artificial Intelligence & RAG")
-
-with st.form("chat_form"):
-    email = st.text_input("Email Gmail:", placeholder="nama@gmail.com")
-    query = st.text_area("Apa yang ingin Anda ketahui tentang Poltesa?", placeholder="Contoh: Apa saja jurusan di Poltesa?")
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        btn_submit = st.form_submit_button("Tanyakan 🚀", use_container_width=True)
-    with c2:
-        btn_clear = st.form_submit_button("Reset", on_click=clear_text, use_container_width=True)
-
-if btn_submit:
-    if not is_valid_email(email):
-        st.error("Gunakan alamat @gmail.com yang valid.")
-    elif not query:
-        st.warning("Pertanyaan tidak boleh kosong.")
-    else:
-        generate_response_with_rag(email, query)
-
+# Tampilkan Jawaban
 if st.session_state["last_answer"]:
     st.chat_message("assistant").write(st.session_state["last_answer"])
-    st.markdown(f'<p class="duration-info">Ditemukan dalam {st.session_state["last_duration"]} detik</p>', unsafe_allow_html=True)
 
-# --- SIDEBAR INFO ---
-with st.sidebar:
-    st.header("Sistem Status")
-    if st.session_state.get("data_initialized"):
-        st.success(f"Database Aktif: {len(st.session_state.chunks)} Dokumen")
-    st.info("Sivita menggunakan pencarian semantik untuk memahami konteks pertanyaan Anda melampaui sekadar kata kunci.")
+st.divider()
+st.caption("Sivita v1.1 | Powered by RAG & Sentence-Transformers")
