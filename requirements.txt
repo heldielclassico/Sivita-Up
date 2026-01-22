@@ -3,3 +3,17 @@ faiss-cpu>=1.7.4
 scikit-learn>=1.3.0
 numpy>=1.24.0
 langchain>=0.1.0
+
+pandas
+streamlit
+langchain
+python-dotenv
+langchain-google-genai
+
+langchain-core
+beautifulsoup4
+langchain-openai
+requests
+
+
+
