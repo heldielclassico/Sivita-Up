@@ -29,7 +29,7 @@ def is_valid_email(email):
 def get_and_process_data():
     """Mengambil data dari Google Sheets dan memproses per baris."""
     try:
-        central_url = st.secrets["SHEET_CENTRAL_URL"]
+        central_url = st.secrets["URL"]
         df_list = pd.read_csv(central_url)
         tab_names = df_list['NamaTab'].tolist()
         base_url = central_url.split('/export')[0]
