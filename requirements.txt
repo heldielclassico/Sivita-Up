@@ -4,6 +4,6 @@ requests
 numpy
 python-dotenv
 langchain-openai
-langchain
+langchain-text-splitters
 faiss-cpu
 sentence-transformers
