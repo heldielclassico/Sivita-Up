@@ -19,7 +19,7 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE CSS AGRESIF UNTUK MENGHAPUS ELEMEN PUTIH ---
+# --- KODE CSS UNTUK MENGHAPUS PAKSA ELEMEN PENGHALANG (PUTIH LONJONG) ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
@@ -45,56 +45,56 @@ st.markdown(f"""
         border-radius: 20px;
         z-index: 999;
         box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        overflow: visible !important;
     }}
 
-    /* HAPUS ELEMEN PUTIH LONJONG (Sangat Agresif) */
-    div[data-testid="stFormSubmitButton"], 
-    div[data-testid="stWidgetLabel"],
-    .stTextArea label,
-    div[data-baseweb="base-input"] + div {{
+    /* --- FIX UTAMA: HAPUS PAKSA ELEMEN PENGHALANG TOMBOL --- */
+    /* Menghilangkan instruksi 'Press Enter' atau elemen help yang menutupi tombol */
+    div[data-testid="stTextArea"] > div:nth-child(2),
+    div[data-testid="stTextArea"] [data-testid="stWidgetLabel"],
+    .stTextArea div[aria-live="polite"] {{
         display: none !important;
         height: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
+        pointer-events: none !important;
     }}
 
-    /* Menghilangkan border dan shadow default textarea */
+    /* Area teks transparan dan bersih */
     .stTextArea textarea {{
         border: none !important;
         background-color: transparent !important;
-        padding-right: 110px !important; 
+        padding-right: 115px !important; 
         resize: none !important;
         font-size: 16px !important;
-        min-height: 80px !important;
+        min-height: 85px !important;
         box-shadow: none !important;
     }}
 
-    /* Tombol melayang di pojok kanan bawah */
+    /* Tombol sejajar dan berdekatan di pojok kanan bawah */
     div[data-testid="column"]:has(button) {{
         position: absolute !important;
         right: 15px !important;
         bottom: 15px !important;
         z-index: 1001 !important;
         width: auto !important;
+        flex: 0 1 auto !important;
     }}
     
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
-        gap: 6px !important; 
         flex-direction: row !important;
+        gap: 6px !important; 
     }}
 
-    /* Style tombol bulat */
+    /* Styling tombol */
     .stButton > button {{
         border-radius: 50px !important;
         padding: 0px 8px !important;
         height: 38px !important;
         min-width: 45px !important;
-        border: 1px solid #f0f0f0 !important;
-        background-color: white !important;
+        border: 1px solid #eeeeee !important;
+        background-color: #ffffff !important;
     }}
 
+    /* Tombol Kirim (Merah) */
     button[kind="primary"] {{
         background-color: #ff4b4b !important;
         color: white !important;
@@ -145,8 +145,7 @@ def get_and_process_data() -> Tuple[List[Dict], str]:
 def create_vector_store(chunks_data: List[Dict]):
     try:
         model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-        texts = [c["text"] for c in chunks_data]
-        embeddings = model.encode(texts, normalize_embeddings=True)
+        embeddings = model.encode([c["text"] for c in chunks_data], normalize_embeddings=True)
         index = faiss.IndexFlatIP(embeddings.shape[1])
         index.add(embeddings.astype('float32'))
         return {"index": index, "chunks": chunks_data, "model": model}
@@ -197,23 +196,23 @@ if st.session_state["last_answer"]:
     with col_clear: st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
     st.markdown("---")
 
-# --- PANEL INPUT (Hapus paksa elemen pengganggu) ---
+# --- PANEL INPUT OVERLAY ---
 with st.container():
     st.markdown('<div class="floating-anchor"></div>', unsafe_allow_html=True)
     
-    # Text area tanpa label
+    # Text area dengan label_visibility="collapsed" tetap butuh CSS tambahan untuk hapus space-nya
     user_query = st.text_area(
-        "hidden_label", 
+        "Label", 
         placeholder="Tanyakan sesuatu pada Sivita...", 
         key="user_query_input", 
         label_visibility="collapsed"
     )
     
     # Tombol Berdekatan
-    c1, c2 = st.columns([1, 1])
-    with c1:
+    c_del, c_send = st.columns([1, 1])
+    with c_del:
         st.button("🗑️", on_click=clear_input_only)
-    with c2:
+    with c_send:
         btn_kirim = st.button("🚀", type="primary")
 
     if btn_kirim:
@@ -227,8 +226,7 @@ with st.container():
                     llm = ChatOpenAI(
                         model="google/gemini-2.0-flash-lite-001",
                         openai_api_key=st.secrets["OPENROUTER_API_KEY"],
-                        openai_api_base="https://openrouter.ai/api/v1",
-                        temperature=0.1
+                        openai_api_base="https://openrouter.ai/api/v1"
                     )
                     full_p = f"{st.session_state.dynamic_sys_prompt}\n\nDATA:\n{chr(10).join(context_list)}\n\nQ: {user_query}"
                     response = llm.invoke(full_p)
