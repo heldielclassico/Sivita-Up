@@ -19,20 +19,19 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE CSS UNTUK OVERLAY TOMBOL SEJAJAR DALAM 1 BARIS ---
+# --- KODE CSS UNTUK OVERLAY TOMBOL BERDEKATAN ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
     header {{visibility: hidden;}}
     
-    /* Ruang bawah agar konten tidak tertutup panel melayang */
     .block-container {{
         padding-top: 5px;
         padding-bottom: 220px; 
     }}
 
-    /* Container utama panel bawah */
+    /* Container utama panel melayang */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-anchor) {{
         position: fixed;
         bottom: 15px;
@@ -41,7 +40,7 @@ st.markdown(f"""
         width: 95%;
         max-width: 730px; 
         background-color: #ffffff;
-        padding: 10px 15px;
+        padding: 10px 12px;
         border: 1px solid #e0e0e0;
         border-radius: 25px;
         z-index: 999;
@@ -52,49 +51,52 @@ st.markdown(f"""
     .stTextArea textarea {{
         border: none !important;
         background-color: transparent !important;
-        padding-right: 115px !important; /* Ruang untuk 2 tombol di kanan */
+        padding-right: 110px !important; 
         resize: none !important;
         font-size: 16px !important;
+        min-height: 80px !important;
     }}
 
-    /* MEMAKSA KOLOM TOMBOL BERSEBELAHAN (1 BARIS) */
+    /* MEMAKSA KOLOM TOMBOL BERDEKATAN DI KANAN BAWAH */
     div[data-testid="column"]:has(button) {{
         position: absolute !important;
-        right: 15px !important;
-        bottom: 18px !important;
+        right: 12px !important;
+        bottom: 15px !important;
         z-index: 1000 !important;
         width: auto !important;
         flex: 0 1 auto !important;
     }}
     
+    /* Gap dibuat sangat kecil (4px) agar tombol berdekatan */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         align-items: center !important;
-        gap: 8px !important;
+        gap: 4px !important; 
     }}
 
-    /* Styling tombol bulat */
+    /* Styling tombol agar ramping dan bulat */
     .stButton > button {{
         border-radius: 50px !important;
-        padding: 0px 10px !important;
-        height: 38px !important;
-        min-width: 45px !important;
-        border: none !important;
+        padding: 0px 8px !important;
+        height: 36px !important;
+        min-width: 42px !important;
+        border: 1px solid #f0f0f0 !important;
     }}
 
-    /* Tombol Kirim Merah */
+    /* Warna khusus tombol Kirim */
     button[kind="primary"] {{
         background-color: #ff4b4b !important;
         color: white !important;
+        border: none !important;
     }}
 
     .stAppDeployButton {{display: none;}}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. FUNGSI LOGIKA & RAG ---
+# --- 3. FUNGSI LOGIKA ---
 
 def is_valid_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', email) is not None
@@ -129,9 +131,7 @@ def get_and_process_data() -> Tuple[List[Dict], str]:
             except Exception: continue
         final_prompt = "\n".join(full_instructions) if full_instructions else "Anda adalah Sivita."
         return all_chunks, final_prompt
-    except Exception as e:
-        st.error(f"Gagal Database: {e}")
-        return [], ""
+    except Exception: return [], ""
 
 def create_vector_store(chunks_data: List[Dict]):
     try:
@@ -159,7 +159,7 @@ def save_to_log(email, question, answer="", duration=0):
 
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
-    with st.spinner("Sinkronisasi Data..."):
+    with st.spinner("Sinkronisasi..."):
         raw_data, dyn_prompt = get_and_process_data()
         if raw_data:
             st.session_state.vector_store = create_vector_store(raw_data)
@@ -173,12 +173,7 @@ if "last_duration" not in st.session_state: st.session_state["last_duration"] = 
 st.markdown("<h1 style='text-align: center; margin-top: -40px;'>🎓 Sivita Poltesa</h1>", unsafe_allow_html=True)
 
 email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
-if st.button("🔄 Sinkronkan Ulang Data"):
-    st.cache_data.clear()
-    st.session_state.vector_store = None
-    st.rerun()
 
-# --- TAMPILAN RESPONS ---
 if st.session_state["last_answer"]:
     st.markdown("---")
     with st.chat_message("assistant"):
@@ -188,30 +183,29 @@ if st.session_state["last_answer"]:
     with col_clear: st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
     st.markdown("---")
 
-# --- PANEL INPUT DENGAN TOMBOL BERSEBELAHAN ---
+# --- PANEL INPUT OVERLAY ---
 with st.container():
     st.markdown('<div class="floating-anchor"></div>', unsafe_allow_html=True)
     
     user_query = st.text_area(
-        "Label", 
-        placeholder="Tanyakan sesuatu pada Sivita...", 
+        "Input", 
+        placeholder="Tanyakan sesuatu...", 
         key="user_query_input", 
-        height=90, 
         label_visibility="collapsed"
     )
     
-    # Kolom untuk tombol (Kiri: Hapus, Kanan: Kirim)
+    # Kolom untuk tombol agar berdekatan di kanan
     c1, c2 = st.columns([1, 1])
     with c1:
-        st.button("🗑️", on_click=clear_input_only, help="Hapus Teks")
+        st.button("🗑️", on_click=clear_input_only)
     with c2:
-        btn_kirim = st.button("🚀", type="primary", help="Kirim")
+        btn_kirim = st.button("🚀", type="primary")
 
     if btn_kirim:
         if not is_valid_email(email):
             st.error("Gunakan email @gmail.com")
         elif user_query:
-            with st.spinner("Berpikir..."):
+            with st.spinner("..."):
                 start_time = time.time()
                 try:
                     context_list = semantic_search(user_query, st.session_state.vector_store)
