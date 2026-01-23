@@ -73,7 +73,7 @@ st.markdown(f"""
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         align-items: center !important;
-        gap: 4px !important; 
+        gap: 1px !important; 
     }}
 
     /* Styling tombol agar ramping dan bulat */
