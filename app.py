@@ -57,7 +57,8 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNGSI ANIMASI ---
+# --- FUNGSI ANIMASI LOTTIE ---
+@st.cache_data
 def load_lottieurl(url: str):
     try:
         r = requests.get(url, timeout=5)
@@ -67,7 +68,7 @@ def load_lottieurl(url: str):
     except:
         return None
 
-# Menggunakan URL alternatif yang lebih umum digunakan untuk testing
+# Memuat animasi robot (Searching)
 lottie_searching = load_lottieurl("https://lottie.host/85590396-981a-466d-961f-f46328325603/6P7qXJ5v6A.json")
 
 # --- 3. FUNGSI LOGIKA & RAG ---
@@ -172,15 +173,20 @@ if st.session_state.vector_store is None:
 st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: -23px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: gray; margin-bottom: 15px;'>Sivita v1.3 | Modular Prompt System</p>", unsafe_allow_html=True)
 
-# --- BAGIAN INPUT ---
+# --- BAGIAN INPUT UTAMA ---
 with st.container(border=True):
     email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
     
+    # Tombol Sinkronkan
     if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
         st.cache_data.clear()
         st.session_state.vector_store = None
         st.rerun()
 
+    # --- TEMPAT ANIMASI MUNCUL (DI BAWAH TOMBOL SINKRON) ---
+    placeholder_animasi = st.empty()
+
+    # --- TAMPILAN JAWABAN TERAKHIR ---
     if st.session_state["last_answer"]:
         st.markdown("---")
         full_answer_html = (
@@ -194,7 +200,7 @@ with st.container(border=True):
         st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
         st.markdown("---")
 
-    # AREA PERTANYAAN
+    # --- AREA PERTANYAAN ---
     with st.container(border=True):
         user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input", height=150)
         col_send, col_del_q = st.columns([1.5, 1])
@@ -203,24 +209,26 @@ with st.container(border=True):
         with col_del_q:
             st.button("Hapus Pertanyaan 🗑️", on_click=clear_input_only, use_container_width=True)
 
-    # LOGIKA PROSES
+    # LOGIKA PENGIRIMAN + PROSES ANIMASI
     if btn_kirim:
         if not is_valid_email(email):
             st.error("Gunakan email @gmail.com")
         elif not user_query:
             st.warning("Tuliskan pertanyaan.")
+        elif st.session_state.vector_store is None:
+            st.error("Data belum siap, silakan klik tombol Sinkronkan Ulang.")
         else:
-            # Placeholder untuk animasi
-            placeholder = st.empty()
-            with placeholder.container():
+            # Tampilkan animasi di placeholder yang sudah disiapkan di atas
+            with placeholder_animasi.container():
                 if lottie_searching:
-                    st_lottie(lottie_searching, height=200, key="searching")
+                    st_lottie(lottie_searching, height=180, key="searching")
                 else:
                     st.write("🔍 Sedang mencari data...")
-                st.markdown("<p style='text-align: center;'>Sivita sedang berpikir...</p>", unsafe_allow_html=True)
+                st.markdown("<p style='text-align: center; color: #007bff;'>Sivita sedang membaca data & merumuskan jawaban...</p>", unsafe_allow_html=True)
             
             start_time = time.time()
             try:
+                # Proses RAG
                 context_list = semantic_search(user_query, st.session_state.vector_store)
                 context_text = "\n".join(context_list)
                 
@@ -232,17 +240,20 @@ with st.container(border=True):
                 )
                 
                 full_prompt = f"{st.session_state.dynamic_sys_prompt}\n\nREFERENSI DATA:\n{context_text}\n\nPERTANYAAN: {user_query}"
-                response = llm.invoke(full_prompt)
                 
+                response = llm.invoke(full_prompt)
                 st.session_state["last_answer"] = response.content
                 st.session_state["last_duration"] = round(time.time() - start_time, 2)
                 
                 save_to_log(email, user_query, response.content, st.session_state["last_duration"])
-                placeholder.empty()
+                
+                # Sembunyikan animasi dan tampilkan jawaban
+                placeholder_animasi.empty()
                 st.rerun()
+                
             except Exception as e:
-                placeholder.empty()
-                st.error(f"Terjadi kesalahan: {e}")
+                placeholder_animasi.empty()
+                st.error(f"Error: {e}")
 
 st.divider()
 st.caption("Sivita - Virtual Assistant Poltesa @2026")
