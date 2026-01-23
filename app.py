@@ -198,7 +198,7 @@ with st.container(border=True):
         st.markdown(full_answer_html, unsafe_allow_html=True)
         st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
         st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
-        st.markdown("---")
+       
 
     # --- AREA PERTANYAAN ---
     with st.container(border=True):
