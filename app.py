@@ -160,7 +160,7 @@ def save_to_log(email, question, answer="", duration=0):
 
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
-    with st.spinner("Mensinkronkan Data..."):
+    with st.spinner("Sinkronisasi Data..."):
         raw_data, dyn_prompt = get_and_process_data()
         if raw_data:
             st.session_state.vector_store = create_vector_store(raw_data)
@@ -172,15 +172,16 @@ if "last_duration" not in st.session_state: st.session_state["last_duration"] = 
 # --- 5. UI UTAMA ---
 
 st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: -15px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray; margin-top: 0px; margin-bottom: 15px;'>Sivita v1.3 | Fixed UI</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: gray; margin-bottom: 25px;'>Sivita v1.3 | Integrated Layout</p>", unsafe_allow_html=True)
 
+# Tampilan Input Email & Sinkronisasi (UI Atas)
 email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
 if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
     st.cache_data.clear()
     st.session_state.vector_store = None
     st.rerun()
 
-# Area Tampilan Jawaban
+# Area Tampilan Jawaban (Tengah)
 if st.session_state["last_answer"]:
     st.markdown("---")
     with st.chat_message("assistant"):
@@ -201,7 +202,7 @@ with st.container():
         label_visibility="collapsed"
     )
     
-    # Tombol Berdekatan di pojok kanan bawah
+    # Tombol Berdekatan (🗑️ & 🚀) di pojok kanan bawah
     c1, c2 = st.columns([1, 1])
     with c1:
         st.button("🗑️", on_click=clear_input_only, help="Hapus Teks")
