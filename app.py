@@ -132,7 +132,7 @@ with st.container(border=True):
     user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input")
     
     # Tombol Sinkronkan di atas tombol Kirim
-    if st.button("🔄 Sinkronkan Ulang Data & Prompt", use_container_width=True):
+    if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
         st.cache_data.clear()
         st.session_state.vector_store = None
         st.rerun()
