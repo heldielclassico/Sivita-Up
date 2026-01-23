@@ -39,6 +39,17 @@ st.markdown(f"""
     
     /* Tambahan untuk benar-benar memastikan tombol github/deploy hilang */
     .stAppDeployButton {{display: none;}}
+
+    /* --- STYLE UNTUK AREA JAWABAN SCROLLABLE --- */
+    .answer-container {{
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        border: 1px solid #e0e0e0;
+        margin-bottom: 10px;
+    }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -154,20 +165,26 @@ with st.container(border=True):
         st.session_state.vector_store = None
         st.rerun()
 
-    # --- BAGIAN HASIL JAWABAN (Posisi Sekarang) ---
+    # --- BAGIAN HASIL JAWABAN (DENGAN SCROLL) ---
     if st.session_state["last_answer"]:
         st.markdown("---")
-        with st.chat_message("assistant"):
-            st.markdown(st.session_state["last_answer"])
+        # Container dengan scroll sendiri
+        st.markdown(f"""
+            <div class="answer-container">
+                <div style="font-weight: bold; margin-bottom: 8px;">🤖 Jawaban Sivita:</div>
+                {st.session_state["last_answer"]}
+            </div>
+        """, unsafe_allow_html=True)
+        
         st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
         
-        # Tombol Hapus Jawaban dipindahkan ke sini agar lebih intuitif
+        # Tombol Hapus Jawaban di bawah hasil
         st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
         st.markdown("---")
 
     user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input")
     
-    # Kolom tombol aksi (Disesuaikan menjadi 2 kolom karena tombol hapus jawaban sudah pindah)
+    # Kolom tombol aksi
     col_send, col_del_q = st.columns([1.5, 1])
     
     with col_send:
