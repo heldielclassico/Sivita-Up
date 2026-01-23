@@ -29,18 +29,18 @@ st.markdown(f"""
     /* Ruang bawah agar konten tidak tertutup panel melayang saat scroll mentok */
     .block-container {{
         padding-top: 5px;
-        padding-bottom: 280px; 
+        padding-bottom: 250px; 
     }}
 
-    /* Jarak antar tombol aksi (Kirim, Hapus Q, Hapus A) */
+    /* Jarak antar tombol aksi */
     [data-testid="stHorizontalBlock"] {{
-        gap: 5px !important;
+        gap: 10px !important;
     }}
     
     /* STYLE UNTUK MEMBUAT AREA INPUT TETAP DI BAWAH (STICKY/FIXED) */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-anchor) {{
         position: fixed;
-        bottom: 10px; /* Posisi panel dinaikkan dari dasar layar */
+        bottom: 10px; /* Sesuai instruksi terakhir: 10px */
         left: 50%;
         transform: translateX(-50%);
         width: 95%;
@@ -48,12 +48,11 @@ st.markdown(f"""
         background-color: #f9f9f9;
         padding: 20px;
         border: 1px solid #eeeeee;
-        border-radius: 20px; /* Sudut lebih membulat/rounded */
+        border-radius: 20px;
         z-index: 999;
-        box-shadow: 0 -5px 25px rgba(0,0,0,0.1); /* Bayangan lebih halus */
+        box-shadow: 0 -5px 25px rgba(0,0,0,0.1);
     }}
 
-    /* Menghilangkan tombol deploy Streamlit */
     .stAppDeployButton {{display: none;}}
     </style>
     """, unsafe_allow_html=True)
@@ -170,24 +169,28 @@ if st.session_state["last_answer"]:
     st.markdown("---")
     with st.chat_message("assistant"):
         st.markdown(st.session_state["last_answer"])
-    st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
+    
+    # Penempatan Tombol Hapus Jawaban di bawah caption durasi sesuai instruksi
+    col_info, col_clear = st.columns([3, 1.2])
+    with col_info:
+        st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
+    with col_clear:
+        st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
     st.markdown("---")
 
-# --- BAGIAN INPUT MENGAMBANG (FIXED DENGAN POSISI NAIK) ---
+# --- BAGIAN INPUT MENGAMBANG (FIXED) ---
 with st.container():
     # Elemen jangkar untuk deteksi CSS
     st.markdown('<div class="floating-anchor"></div>', unsafe_allow_html=True)
     
     user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input", height=80)
     
-    col_send, col_del_q, col_del_a = st.columns([1.5, 1, 1])
+    col_send, col_del_q = st.columns([2, 1])
     
     with col_send:
         btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
     with col_del_q:
         st.button("Hapus Q 🗑️", on_click=clear_input_only, use_container_width=True)
-    with col_del_a:
-        st.button("Hapus A ✨", on_click=clear_answer_only, use_container_width=True)
 
     if btn_kirim:
         if not is_valid_email(email):
