@@ -19,13 +19,14 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE CSS UNTUK FIX TOMBOL TERTUTUP & MERAPATKAN TOMBOL ---
+# --- KODE CSS UNTUK OVERLAY TOMBOL BERDEKATAN DALAM TEXT AREA ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
     header {{visibility: hidden;}}
     
+    /* Ruang bawah agar konten tidak tertutup panel melayang */
     .block-container {{
         padding-top: 5px;
         padding-bottom: 220px; 
@@ -42,12 +43,12 @@ st.markdown(f"""
         background-color: #ffffff;
         padding: 10px 12px;
         border: 1px solid #e0e0e0;
-        border-radius: 20px;
+        border-radius: 25px;
         z-index: 999;
         box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     }}
 
-    /* Menghilangkan elemen putih (label/border) yang menutupi tombol */
+    /* Menghilangkan border default text area */
     .stTextArea textarea {{
         border: none !important;
         background-color: transparent !important;
@@ -55,12 +56,6 @@ st.markdown(f"""
         resize: none !important;
         font-size: 16px !important;
         min-height: 80px !important;
-        margin-bottom: 0px !important;
-    }}
-
-    /* Menghilangkan pembungkus widget yang menyebabkan elemen putih melayang */
-    div[data-testid="stWidgetLabel"] {{
-        display: none !important;
     }}
 
     /* MEMAKSA KOLOM TOMBOL BERDEKATAN DI KANAN BAWAH */
@@ -73,7 +68,7 @@ st.markdown(f"""
         flex: 0 1 auto !important;
     }}
     
-    /* Gap dibuat sangat kecil agar tombol berdekatan */
+    /* Gap sangat kecil agar tombol berdekatan */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -82,7 +77,7 @@ st.markdown(f"""
         gap: 6px !important; 
     }}
 
-    /* Styling tombol bulat agar ramping */
+    /* Styling tombol agar ramping dan bulat */
     .stButton > button {{
         border-radius: 50px !important;
         padding: 0px 8px !important;
@@ -91,7 +86,7 @@ st.markdown(f"""
         border: 1px solid #f0f0f0 !important;
     }}
 
-    /* Warna tombol Kirim (Primary) */
+    /* Tombol Kirim Merah */
     button[kind="primary"] {{
         background-color: #ff4b4b !important;
         color: white !important;
@@ -102,7 +97,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. FUNGSI LOGIKA ---
+# --- 3. FUNGSI LOGIKA & RAG ---
 
 def is_valid_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', email) is not None
@@ -165,7 +160,7 @@ def save_to_log(email, question, answer="", duration=0):
 
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
-    with st.spinner("Sinkronisasi Data..."):
+    with st.spinner("Mensinkronkan Data..."):
         raw_data, dyn_prompt = get_and_process_data()
         if raw_data:
             st.session_state.vector_store = create_vector_store(raw_data)
@@ -185,17 +180,17 @@ if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
     st.session_state.vector_store = None
     st.rerun()
 
-# --- TAMPILAN JAWABAN ---
+# Area Tampilan Jawaban
 if st.session_state["last_answer"]:
     st.markdown("---")
     with st.chat_message("assistant"):
         st.markdown(st.session_state["last_answer"])
     col_info, col_clear = st.columns([2, 1])
-    with col_info: st.caption(f"⏱️ {st.session_state['last_duration']} detik")
+    with col_info: st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
     with col_clear: st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
     st.markdown("---")
 
-# --- PANEL INPUT OVERLAY (FIXED) ---
+# --- PANEL INPUT MENGAMBANG (BAWAH) ---
 with st.container():
     st.markdown('<div class="floating-anchor"></div>', unsafe_allow_html=True)
     
@@ -206,18 +201,18 @@ with st.container():
         label_visibility="collapsed"
     )
     
-    # Kolom tombol agar berdekatan di kanan bawah
+    # Tombol Berdekatan di pojok kanan bawah
     c1, c2 = st.columns([1, 1])
     with c1:
         st.button("🗑️", on_click=clear_input_only, help="Hapus Teks")
     with c2:
-        btn_kirim = st.button("🚀", type="primary", help="Kirim")
+        btn_kirim = st.button("🚀", type="primary", help="Kirim Pertanyaan")
 
     if btn_kirim:
         if not is_valid_email(email):
             st.error("Gunakan email @gmail.com")
         elif user_query:
-            with st.spinner("..."):
+            with st.spinner("Berpikir..."):
                 start_time = time.time()
                 try:
                     context_list = semantic_search(user_query, st.session_state.vector_store)
