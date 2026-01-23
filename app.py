@@ -68,7 +68,7 @@ def load_lottieurl(url: str):
     except:
         return None
 
-# Memuat animasi robot (Searching)
+# Memuat animasi robot (Searching/Syncing)
 lottie_searching = load_lottieurl("https://lottie.host/85590396-981a-466d-961f-f46328325603/6P7qXJ5v6A.json")
 
 # --- 3. FUNGSI LOGIKA & RAG ---
@@ -134,7 +134,6 @@ def semantic_search(query: str, vector_store: Dict, top_k: int = 5):
     results = [vector_store["chunks"][idx]["text"] for idx in indices[0] if idx < len(vector_store["chunks"])]
     return results
 
-# --- 4. FUNGSI: SIMPAN LOG ---
 def save_to_log(email, question, answer="", duration=0):
     try:
         log_url = st.secrets["LOG_URL"]
@@ -159,15 +158,30 @@ if "last_answer" not in st.session_state:
 if "last_duration" not in st.session_state:
     st.session_state["last_duration"] = 0
 
-# Sinkronisasi awal jika data kosong
+# --- SINKRONISASI AWAL DI TENGAH LAYAR ---
 if st.session_state.vector_store is None:
-    with st.spinner("Mensinkronkan Data & Instruksi..."):
+    sync_placeholder = st.empty()
+    with sync_placeholder.container():
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if lottie_searching:
+                st_lottie(lottie_searching, height=250, key="initial_sync")
+            else:
+                st.markdown("<h1 style='text-align: center;'>⏳</h1>", unsafe_allow_html=True)
+            st.markdown("<h3 style='text-align: center;'>Mensinkronkan Data & Instruksi...</h3>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: gray;'>Sivita sedang menyiapkan database untuk Anda.</p>", unsafe_allow_html=True)
+        
+        # Proses Sinkronisasi
         raw_data, dyn_prompt = get_and_process_data()
         if raw_data:
             st.session_state.vector_store = create_vector_store(raw_data)
             st.session_state.dynamic_sys_prompt = dyn_prompt
+            time.sleep(1) # Jeda visual agar transisi halus
+            sync_placeholder.empty()
+            st.rerun()
 
-# --- 6. UI UTAMA ---
+# --- 6. UI UTAMA (Hanya muncul jika data sudah siap) ---
 
 # Judul Utama
 st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: -23px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
@@ -177,20 +191,17 @@ st.markdown("<p style='text-align: center; color: gray; margin-bottom: 15px;'>Si
 with st.container(border=True):
     email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
     
-    # Tombol Sinkronkan
     if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
         st.cache_data.clear()
         st.session_state.vector_store = None
         st.rerun()
 
-    # --- TEMPAT ANIMASI MUNCUL (DI BAWAH TOMBOL SINKRON) ---
     placeholder_animasi = st.empty()
 
     # --- TAMPILAN JAWABAN TERAKHIR ---
     if st.session_state["last_answer"]:
-        st.markdown("---")
         full_answer_html = (
-            f'<div class="answer-box">'
+            f'<div class="answer-box" style="margin-top: 15px;">'
             f'<div style="font-weight: bold; color: #007bff; margin-bottom: 8px;">🤖 Jawaban Sivita:</div>'
             f'{st.session_state["last_answer"]}'
             f'</div>'
@@ -198,7 +209,6 @@ with st.container(border=True):
         st.markdown(full_answer_html, unsafe_allow_html=True)
         st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
         st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
-       
 
     # --- AREA PERTANYAAN ---
     with st.container(border=True):
@@ -216,19 +226,15 @@ with st.container(border=True):
         elif not user_query:
             st.warning("Tuliskan pertanyaan.")
         elif st.session_state.vector_store is None:
-            st.error("Data belum siap, silakan klik tombol Sinkronkan Ulang.")
+            st.error("Data belum siap.")
         else:
-            # Tampilkan animasi di placeholder yang sudah disiapkan di atas
             with placeholder_animasi.container():
                 if lottie_searching:
                     st_lottie(lottie_searching, height=180, key="searching")
-                else:
-                    st.write("🔍 Sedang mencari data...")
-                st.markdown("<p style='text-align: center; color: #007bff;'>Sivita sedang membaca data & merumuskan jawaban...</p>", unsafe_allow_html=True)
+                st.markdown("<p style='text-align: center; color: #007bff;'>Sivita sedang merumuskan jawaban...</p>", unsafe_allow_html=True)
             
             start_time = time.time()
             try:
-                # Proses RAG
                 context_list = semantic_search(user_query, st.session_state.vector_store)
                 context_text = "\n".join(context_list)
                 
@@ -240,20 +246,17 @@ with st.container(border=True):
                 )
                 
                 full_prompt = f"{st.session_state.dynamic_sys_prompt}\n\nREFERENSI DATA:\n{context_text}\n\nPERTANYAAN: {user_query}"
-                
                 response = llm.invoke(full_prompt)
+                
                 st.session_state["last_answer"] = response.content
                 st.session_state["last_duration"] = round(time.time() - start_time, 2)
                 
                 save_to_log(email, user_query, response.content, st.session_state["last_duration"])
-                
-                # Sembunyikan animasi dan tampilkan jawaban
                 placeholder_animasi.empty()
                 st.rerun()
                 
             except Exception as e:
                 placeholder_animasi.empty()
                 st.error(f"Error: {e}")
-
 
 st.caption("Sivita - Virtual Assistant Poltesa @2026")
