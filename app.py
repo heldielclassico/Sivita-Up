@@ -41,7 +41,7 @@ st.markdown(f"""
     .stAppDeployButton {{display: none;}}
 
     /* --- STYLE UNTUK AREA JAWABAN SCROLLABLE --- */
-    .answer-container {{
+    .answer-box {{
         max-height: 400px;
         overflow-y: auto;
         padding: 15px;
@@ -49,6 +49,8 @@ st.markdown(f"""
         border-radius: 10px;
         border: 1px solid #e0e0e0;
         margin-bottom: 10px;
+        line-height: 1.6;
+        color: #31333F;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -165,20 +167,21 @@ with st.container(border=True):
         st.session_state.vector_store = None
         st.rerun()
 
-    # --- BAGIAN HASIL JAWABAN (DENGAN SCROLL) ---
+    # --- BAGIAN HASIL JAWABAN (DENGAN SCROLL SENDIRI) ---
     if st.session_state["last_answer"]:
         st.markdown("---")
-        # Container dengan scroll sendiri
-        st.markdown(f"""
-            <div class="answer-container">
-                <div style="font-weight: bold; margin-bottom: 8px;">🤖 Jawaban Sivita:</div>
-                {st.session_state["last_answer"]}
-            </div>
-        """, unsafe_allow_html=True)
+        # Mengemas seluruh blok jawaban dalam satu f-string untuk mencegah kebocoran tag HTML
+        full_answer_html = (
+            f'<div class="answer-box">'
+            f'<div style="font-weight: bold; color: #007bff; margin-bottom: 8px;">🤖 Jawaban Sivita:</div>'
+            f'{st.session_state["last_answer"]}'
+            f'</div>'
+        )
+        st.markdown(full_answer_html, unsafe_allow_html=True)
         
         st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
         
-        # Tombol Hapus Jawaban di bawah hasil
+        # Tombol Hapus Jawaban
         st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
         st.markdown("---")
 
