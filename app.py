@@ -32,15 +32,24 @@ st.markdown(f"""
         padding-bottom: 250px; 
     }}
 
-    /* Jarak antar tombol aksi */
-    [data-testid="stHorizontalBlock"] {{
-        gap: 10px !important;
+    /* FORCE TOMBOL BERSEBELAHAN DI MOBILE */
+    [data-testid="column"] {{
+        width: auto !important;
+        flex: 1 1 auto !important;
     }}
     
+    [data-testid="stHorizontalBlock"] {{
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: flex-end !important;
+        gap: 10px !important;
+    }}
+
     /* STYLE UNTUK MEMBUAT AREA INPUT TETAP DI BAWAH (STICKY/FIXED) */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-anchor) {{
         position: fixed;
-        bottom: 10px; /* Sesuai instruksi terakhir: 10px */
+        bottom: 10px;
         left: 50%;
         transform: translateX(-50%);
         width: 95%;
@@ -170,8 +179,8 @@ if st.session_state["last_answer"]:
     with st.chat_message("assistant"):
         st.markdown(st.session_state["last_answer"])
     
-    # Penempatan Tombol Hapus Jawaban di bawah caption durasi sesuai instruksi
-    col_info, col_clear = st.columns([3, 1.2])
+    # Tombol Hapus Jawaban di bawah caption durasi
+    col_info, col_clear = st.columns([2.5, 1])
     with col_info:
         st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
     with col_clear:
@@ -180,12 +189,12 @@ if st.session_state["last_answer"]:
 
 # --- BAGIAN INPUT MENGAMBANG (FIXED) ---
 with st.container():
-    # Elemen jangkar untuk deteksi CSS
     st.markdown('<div class="floating-anchor"></div>', unsafe_allow_html=True)
     
     user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input", height=80)
     
-    col_send, col_del_q = st.columns([2, 1])
+    # Tombol dipaksa bersebelahan dengan CSS flex-row di atas
+    col_send, col_del_q = st.columns([2.5, 1])
     
     with col_send:
         btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
