@@ -28,7 +28,7 @@ st.markdown(f"""
     
     /* Ruang bawah agar konten tidak tertutup panel melayang */
     .block-container {{
-        padding-top: 5px;
+        padding-top: 50px;
         padding-bottom: 220px; 
     }}
 
