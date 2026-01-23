@@ -32,6 +32,12 @@ st.markdown("""
         padding-bottom: 0rem;
     }
     
+    /* Merapatkan jarak antar kolom tombol */
+    [data-testid="column"] {
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+    }
+    
     /* Tambahan untuk benar-benar memastikan tombol github/deploy hilang */
     .stAppDeployButton {display: none;}
     </style>
@@ -131,14 +137,14 @@ if st.session_state.vector_store is None:
 
 # --- 6. UI UTAMA ---
 
-# Mengganti st.title dengan Markdown HTML untuk kontrol margin yang presisi
+# Mengatur Judul dengan posisi khusus (jarak 5 dari atas melalui CSS block-container dan margin-top)
 st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: 0px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: gray; margin-bottom: 15px;'>Sivita v1.3 | Modular Prompt System</p>", unsafe_allow_html=True)
 
 with st.container(border=True):
     email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
     
-    # Tombol Sinkronkan di bawah input email
+    # Tombol Sinkronkan diletakkan tepat di bawah input email
     if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
         st.cache_data.clear()
         st.session_state.vector_store = None
@@ -146,7 +152,8 @@ with st.container(border=True):
 
     user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input")
     
-    col1, col2 = st.columns(2)
+    # Menggunakan gap="small" untuk merapatkan tombol Kirim dan Hapus
+    col1, col2 = st.columns(2, gap="small")
     with col1:
         btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
     with col2:
