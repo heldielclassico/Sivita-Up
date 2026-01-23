@@ -38,31 +38,25 @@ def get_and_process_data() -> Tuple[List[Dict], str]:
         base_url = central_url.split('/export')[0]
         
         all_chunks = []
-        full_instructions = [] # List untuk menampung semua baris prompt
+        full_instructions = []
         
         for tab in tab_names:
             tab_url = f"{base_url}/gviz/tq?tqx=out:csv&sheet={tab.replace(' ', '%20')}"
             try:
                 df = pd.read_csv(tab_url)
-                
-                # JIKA TAB ADALAH 'Prompt', ambil semua isi kolom 'Isi'
                 if tab.lower() == 'prompt':
                     if 'Isi' in df.columns:
-                        # Menggabungkan semua baris di kolom 'Isi' menjadi satu string
                         full_instructions = df['Isi'].dropna().astype(str).tolist()
                     continue
                 
-                # PROSES DATA RAG
                 for idx, row in df.iterrows():
                     row_content = f"Data {tab}: " + ", ".join([f"{col} adalah {val}" for col, val in row.items() if pd.notna(val)])
                     all_chunks.append({"text": row_content, "source": tab})
             except Exception:
                 continue
         
-        # Gabungkan semua baris instruksi dengan ganti baris (\n)
         final_prompt = "\n".join(full_instructions) if full_instructions else "Anda adalah Sivita."
         return all_chunks, final_prompt
-
     except Exception as e:
         st.error(f"Gagal memuat Database: {e}")
         return [], ""
@@ -88,12 +82,21 @@ def semantic_search(query: str, vector_store: Dict, top_k: int = 5):
     results = [vector_store["chunks"][idx]["text"] for idx in indices[0] if idx < len(vector_store["chunks"])]
     return results
 
-def safe_log(email, query, answer, duration):
+# --- FUNGSI: SIMPAN LOG (DIREVISI) ---
+def save_to_log(email, question, answer="", duration=0):
+    """Mengirim data log ke Google Apps Script."""
     try:
         log_url = st.secrets["LOG_URL"]
-        payload = {"email": email, "query": query, "answer": answer, "time": f"{duration}s"}
+        # Menggunakan key 'query' agar terbaca di kolom pertanyaan Google Sheets
+        payload = {
+            "email": email,
+            "query": question, 
+            "answer": answer,
+            "time": f"{duration} detik"
+        }
         requests.post(log_url, json=payload, timeout=10)
-    except:
+    except Exception as e:
+        # Log error internal (opsional)
         pass
 
 # --- 4. INISIALISASI & SIDEBAR ---
@@ -142,6 +145,8 @@ with st.container(border=True):
             st.error("Gunakan email @gmail.com")
         elif not user_query:
             st.warning("Tuliskan pertanyaan.")
+        elif st.session_state.vector_store is None:
+            st.error("Database belum siap. Silakan klik sinkronisasi.")
         else:
             with st.spinner("Mencari jawaban..."):
                 start_time = time.time()
@@ -161,7 +166,9 @@ with st.container(border=True):
                     response = llm.invoke(full_prompt)
                     st.session_state["last_answer"] = response.content
                     st.session_state["last_duration"] = round(time.time() - start_time, 2)
-                    safe_log(email, user_query, response.content, st.session_state["last_duration"])
+                    
+                    # Memanggil fungsi log yang sudah diperbaiki
+                    save_to_log(email, user_query, response.content, st.session_state["last_duration"])
                 except Exception as e:
                     st.error(f"Error: {e}")
 
