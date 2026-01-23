@@ -24,15 +24,14 @@ st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="cente
 def is_valid_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', email) is not None
 
-def clear_text():
-    """Menghapus input pertanyaan dan jawaban terakhir."""
-    st.session_state["user_input_val"] = ""
-    st.session_state["last_answer"] = ""
-    st.session_state["last_duration"] = 0
+def clear_input_only():
+    """Fungsi khusus hanya untuk menghapus teks di kolom pertanyaan."""
+    st.session_state["user_query_input"] = ""
+    # Jawaban tidak dihapus agar user tetap bisa membaca hasil sebelumnya
 
 @st.cache_data(show_spinner=False)
 def get_and_process_data():
-    """Mengambil data dari Google Sheets dan memproses per baris untuk RAG."""
+    """Mengambil data dari Google Sheets dan memproses per baris."""
     try:
         central_url = st.secrets["SHEET_CENTRAL_URL"]
         df_list = pd.read_csv(central_url)
@@ -45,7 +44,6 @@ def get_and_process_data():
             try:
                 df = pd.read_csv(tab_url)
                 for idx, row in df.iterrows():
-                    # Format data menjadi kalimat deskriptif agar mudah dipahami AI
                     row_content = f"Data {tab}: " + ", ".join([f"{col} adalah {val}" for col, val in row.items() if pd.notna(val)])
                     all_chunks.append({"text": row_content, "source": tab})
             except Exception:
@@ -56,14 +54,14 @@ def get_and_process_data():
         return []
 
 def create_vector_store(chunks_data: List[Dict]):
-    """Membangun Vector Database menggunakan FAISS."""
+    """Membangun Vector Database (FAISS)."""
     try:
         model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
         texts = [c["text"] for c in chunks_data]
         embeddings = model.encode(texts, normalize_embeddings=True)
         
         dimension = embeddings.shape[1]
-        index = faiss.IndexFlatIP(dimension) # Inner Product untuk Cosine Similarity
+        index = faiss.IndexFlatIP(dimension)
         index.add(embeddings.astype('float32'))
         
         return {"index": index, "chunks": chunks_data, "model": model}
@@ -72,7 +70,7 @@ def create_vector_store(chunks_data: List[Dict]):
         return None
 
 def semantic_search(query: str, vector_store: Dict, top_k: int = 5):
-    """Mencari referensi data paling relevan."""
+    """Mencari data paling relevan."""
     query_vec = vector_store["model"].encode([query], normalize_embeddings=True)
     distances, indices = vector_store["index"].search(query_vec.astype('float32'), top_k)
     
@@ -83,7 +81,7 @@ def semantic_search(query: str, vector_store: Dict, top_k: int = 5):
     return results
 
 def safe_log(email, query, answer, duration):
-    """Logging aktivitas ke Google Sheets melalui Apps Script."""
+    """Mengirim log ke Google Sheets."""
     try:
         log_url = st.secrets["LOG_URL"]
         payload = {"email": email, "query": query, "answer": answer, "time": f"{duration}s"}
@@ -99,8 +97,6 @@ if "last_answer" not in st.session_state:
     st.session_state["last_answer"] = ""
 if "last_duration" not in st.session_state:
     st.session_state["last_duration"] = 0
-if "user_input_val" not in st.session_state:
-    st.session_state["user_input_val"] = ""
 
 # --- 5. SIDEBAR & SINKRONISASI ---
 
@@ -111,50 +107,48 @@ with st.sidebar:
         st.session_state.vector_store = None
         st.rerun()
     
-    st.divider()
-    
     if st.session_state.vector_store is None:
         with st.spinner("Mengunduh data Poltesa..."):
             raw_data = get_and_process_data()
             if raw_data:
                 st.session_state.vector_store = create_vector_store(raw_data)
-                st.success(f"✅ {len(raw_data)} baris data aktif.")
+                st.success(f"✅ {len(raw_data)} data aktif.")
 
 # --- 6. ANTARMUKA UTAMA ---
 
 st.title("🎓 Asisten Virtual Poltesa (Sivita)")
-st.markdown("<p style='margin-top: -20px; color: gray;'>Teknologi RAG v1.2</p>", unsafe_allow_html=True)
+st.markdown("<p style='margin-top: -20px; color: gray;'>Sivita v1.2 | RAG Technology</p>", unsafe_allow_html=True)
 
-# Form Input
+# Container Input
 with st.container(border=True):
-    email = st.text_input("Email Gmail:", placeholder="nama@gmail.com")
+    email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
     
-    # Text area menggunakan value dari session state agar bisa dihapus
+    # Text area dengan KEY tetap untuk penghapusan
     user_query = st.text_area(
         "Apa yang ingin Anda tanyakan?", 
-        placeholder="Contoh: Berapa jumlah dosen di Poltesa?",
-        value=st.session_state["user_input_val"],
-        key="user_input_area"
+        placeholder="Tanyakan info kampus di sini...",
+        key="user_query_input"
     )
     
     col1, col2 = st.columns(2)
     
     with col1:
         btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True)
+    
     with col2:
-        # Tombol hapus memanggil fungsi clear_text
-        st.button("Hapus Chat 🗑️", on_click=clear_text, use_container_width=True)
+        # Tombol Hapus hanya memanggil clear_input_only
+        st.button("Hapus Pertanyaan 🗑️", on_click=clear_input_only, use_container_width=True)
 
     if btn_kirim:
         if not is_valid_email(email):
             st.error("Gunakan format email @gmail.com yang valid.")
         elif not user_query:
-            st.warning("Pertanyaan tidak boleh kosong.")
+            st.warning("Masukkan pertanyaan Anda.")
         else:
-            with st.spinner("Sivita sedang berpikir..."):
+            with st.spinner("Mencari jawaban..."):
                 start_time = time.time()
                 try:
-                    # RAG Process
+                    # Proses RAG
                     context_list = semantic_search(user_query, st.session_state.vector_store)
                     context_text = "\n".join(context_list)
                     
@@ -170,18 +164,16 @@ with st.container(border=True):
                     
                     response = llm.invoke(full_prompt)
                     
-                    # Simpan hasil ke state
+                    # Simpan hasil jawaban ke session state
                     st.session_state["last_answer"] = response.content
-                    duration = round(time.time() - start_time, 2)
-                    st.session_state["last_duration"] = duration
+                    st.session_state["last_duration"] = round(time.time() - start_time, 2)
                     
-                    # Log
-                    safe_log(email, user_query, response.content, duration)
-                    
+                    # Log data
+                    safe_log(email, user_query, response.content, st.session_state["last_duration"])
                 except Exception as e:
-                    st.error(f"Terjadi kesalahan teknis: {e}")
+                    st.error(f"Gangguan teknis: {e}")
 
-# Tampilan Jawaban
+# Tampilan Jawaban (Tetap ada meskipun input pertanyaan dihapus)
 if st.session_state["last_answer"]:
     st.markdown("---")
     with st.chat_message("assistant"):
@@ -189,4 +181,4 @@ if st.session_state["last_answer"]:
     st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
 
 st.divider()
-st.caption("Sivita - Sistem Informasi Virtual Asisten Poltesa @2026")
+st.caption("Sivita - Virtual Assistant Poltesa @2026")
