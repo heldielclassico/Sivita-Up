@@ -50,6 +50,10 @@ def is_valid_email(email):
 def clear_input_only():
     st.session_state["user_query_input"] = ""
 
+def clear_answer_only():
+    st.session_state["last_answer"] = ""
+    st.session_state["last_duration"] = 0
+
 @st.cache_data(show_spinner=False)
 def get_and_process_data() -> Tuple[List[Dict], str]:
     try:
@@ -136,8 +140,8 @@ if st.session_state.vector_store is None:
 
 # --- 6. UI UTAMA ---
 
-# Judul dengan margin khusus
-st.markdown("<h1 style='text-align: center; margin-top: -20px; margin-bottom: 0px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
+# Judul dengan margin khusus (naik ke atas)
+st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: 0px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: gray; margin-bottom: 15px;'>Sivita v1.3 | Modular Prompt System</p>", unsafe_allow_html=True)
 
 with st.container(border=True):
@@ -151,12 +155,15 @@ with st.container(border=True):
 
     user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input")
     
-    # Jarak antar kolom ini dikontrol oleh CSS [data-testid="stHorizontalBlock"] di atas
-    col1, col2 = st.columns(2)
-    with col1:
+    # 3 Kolom untuk tombol aksi (Kirim, Hapus Pertanyaan, Hapus Jawaban)
+    col_send, col_del_q, col_del_a = st.columns([1.5, 1, 1])
+    
+    with col_send:
         btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
-    with col2:
+    with col_del_q:
         st.button("Hapus Pertanyaan 🗑️", on_click=clear_input_only, use_container_width=True)
+    with col_del_a:
+        st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
 
     if btn_kirim:
         if not is_valid_email(email):
