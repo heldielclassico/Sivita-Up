@@ -19,16 +19,17 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE CSS UNTUK TAMPILAN MENGAMBANG, SCROLL, DAN UI CLEAN ---
+# --- KODE CSS UNTUK TAMPILAN MENGAMBANG PERMANEN (FIXED BOTTOM) ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
     header {{visibility: hidden;}}
     
-    .block-container {{
-        padding-top: 5px;
-        padding-bottom: 5rem; /* Memberi ruang di bawah agar tidak tertutup floating input */
+    /* Memberikan ruang kosong di bawah agar konten jawaban tidak tertutup input floating */
+    .main .block-container {{
+        padding-bottom: 280px;
+        padding-top: 10px;
     }}
     
     [data-testid="stHorizontalBlock"] {{
@@ -39,30 +40,39 @@ st.markdown(f"""
 
     /* --- STYLE AREA JAWABAN SCROLLABLE --- */
     .answer-box {{
-        max-height: 300px;
+        max-height: 400px;
         overflow-y: auto;
         padding: 15px;
         background-color: #f8f9fa;
-        border-radius: 10px;
+        border-radius: 12px;
         border: 1px solid #e0e0e0;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
         line-height: 1.6;
         color: #31333F;
     }}
 
-    /* --- STYLE AREA INPUT MENGAMBANG (FLOATING & SCROLL) --- */
+    /* --- STYLE AREA INPUT MENGAMBANG (FIXED AT BOTTOM) --- */
     .custom-input-group {{
-        position: sticky;
-        bottom: 20px; /* Jarak dari bawah layar */
-        z-index: 1000;
-        max-height: 400px;
-        overflow-y: auto;
-        padding: 20px;
-        border: 1px solid #dee2e6;
-        border-radius: 15px;
+        position: fixed;
+        bottom: 25px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100%;
+        max-width: 730px; /* Menyesuaikan lebar layout centered Streamlit */
+        z-index: 9999;
+        padding: 18px;
         background-color: #ffffff;
-        box-shadow: 0 -8px 25px rgba(0,0,0,0.1); /* Bayangan untuk efek mengambang */
-        margin-top: 20px;
+        border: 1px solid #d1d5db;
+        border-radius: 20px;
+        box-shadow: 0 -10px 25px rgba(0,0,0,0.1);
+    }}
+    
+    /* Responsif untuk perangkat mobile */
+    @media (max-width: 768px) {{
+        .custom-input-group {{
+            width: 92%;
+            bottom: 15px;
+        }}
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -143,7 +153,7 @@ def save_to_log(email, question, answer="", duration=0):
     except Exception as e:
         print(f"Log Error: {e}")
 
-# --- 5. INISIALISASI ---
+# --- 4. INISIALISASI ---
 
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
@@ -155,79 +165,78 @@ if "last_duration" not in st.session_state:
     st.session_state["last_duration"] = 0
 
 if st.session_state.vector_store is None:
-    with st.spinner("Mensinkronkan Data & Instruksi..."):
+    with st.spinner("Mensinkronkan Data..."):
         raw_data, dyn_prompt = get_and_process_data()
         if raw_data:
             st.session_state.vector_store = create_vector_store(raw_data)
             st.session_state.dynamic_sys_prompt = dyn_prompt
 
-# --- 6. UI UTAMA ---
+# --- 5. UI UTAMA ---
 
-st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: 0px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray; margin-bottom: 15px;'>Sivita v1.3 | Modular Prompt System</p>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; margin-top: -30px;'>🎓 Sivita Poltesa</h1>", unsafe_allow_html=True)
 
-with st.container(border=True):
-    email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
-    
-    if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
+with st.expander("⚙️ Konfigurasi Email & Data", expanded=False):
+    email = st.text_input("Email Gmail:", placeholder="nama@gmail.com")
+    if st.button("🔄 Sinkronkan Ulang", use_container_width=True):
         st.cache_data.clear()
         st.session_state.vector_store = None
         st.rerun()
 
-    # --- BAGIAN HASIL JAWABAN (DENGAN SCROLL) ---
-    if st.session_state["last_answer"]:
-        st.markdown("---")
-        full_answer_html = (
-            f'<div class="answer-box">'
-            f'<div style="font-weight: bold; color: #007bff; margin-bottom: 8px;">🤖 Jawaban Sivita:</div>'
-            f'{st.session_state["last_answer"]}'
-            f'</div>'
-        )
-        st.markdown(full_answer_html, unsafe_allow_html=True)
-        st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
-        st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
-        st.markdown("---")
+# AREA TAMPILAN JAWABAN
+if st.session_state["last_answer"]:
+    st.markdown("### 🤖 Jawaban")
+    # Menggunakan string tunggal untuk mencegah kebocoran tag HTML
+    ans_html = f'<div class="answer-box">{st.session_state["last_answer"]}</div>'
+    st.markdown(ans_html, unsafe_allow_html=True)
+    st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
+    st.button("Hapus Jawaban ✨", on_click=clear_answer_only)
 
-    # --- WRAPPER DIV UNTUK INPUT MENGAMBANG & SCROLLABLE ---
-    st.markdown('<div class="custom-input-group">', unsafe_allow_html=True)
-    
-    user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input", height=120)
-    
-    col_send, col_del_q = st.columns([1.5, 1])
-    with col_send:
-        btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
-    with col_del_q:
-        st.button("Hapus Pertanyaan 🗑️", on_click=clear_input_only, use_container_width=True)
-        
-    st.markdown('</div>', unsafe_allow_html=True)
+# --- WRAPPER INPUT FLOATING (STAY AT BOTTOM) ---
+st.markdown('<div class="custom-input-group">', unsafe_allow_html=True)
 
-    if btn_kirim:
-        if not is_valid_email(email):
-            st.error("Gunakan email @gmail.com")
-        elif not user_query:
-            st.warning("Tuliskan pertanyaan.")
-        elif st.session_state.vector_store is None:
-            st.error("Data belum siap, silakan klik tombol Sinkronkan Ulang.")
-        else:
-            with st.spinner("Mencari jawaban..."):
-                start_time = time.time()
-                try:
-                    context_list = semantic_search(user_query, st.session_state.vector_store)
-                    context_text = "\n".join(context_list)
-                    llm = ChatOpenAI(
-                        model="google/gemini-2.0-flash-lite-001",
-                        openai_api_key=st.secrets["OPENROUTER_API_KEY"],
-                        openai_api_base="https://openrouter.ai/api/v1",
-                        temperature=0.1
-                    )
-                    full_prompt = f"{st.session_state.dynamic_sys_prompt}\n\nREFERENSI DATA:\n{context_text}\n\nPERTANYAAN: {user_query}"
-                    response = llm.invoke(full_prompt)
-                    st.session_state["last_answer"] = response.content
-                    st.session_state["last_duration"] = round(time.time() - start_time, 2)
-                    save_to_log(email, user_query, response.content, st.session_state["last_duration"])
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error: {e}")
+user_query = st.text_area(
+    "Tanya Sivita:", 
+    placeholder="Ketik pertanyaan Anda di sini...", 
+    key="user_query_input", 
+    height=90, 
+    label_visibility="collapsed"
+)
+
+col_send, col_clear = st.columns([2, 1])
+with col_send:
+    btn_kirim = st.button("Kirim 🚀", use_container_width=True, type="primary")
+with col_clear:
+    st.button("Bersihkan 🗑️", on_click=clear_input_only, use_container_width=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# --- LOGIKA BACKEND ---
+if btn_kirim:
+    if not is_valid_email(email):
+        st.error("Gunakan email @gmail.com")
+    elif not user_query:
+        st.warning("Silakan tulis pertanyaan.")
+    else:
+        with st.spinner("Sivita sedang berpikir..."):
+            start_time = time.time()
+            try:
+                context_list = semantic_search(user_query, st.session_state.vector_store)
+                context_text = "\n".join(context_list)
+                llm = ChatOpenAI(
+                    model="google/gemini-2.0-flash-lite-001",
+                    openai_api_key=st.secrets["OPENROUTER_API_KEY"],
+                    openai_api_base="https://openrouter.ai/api/v1",
+                    temperature=0.1
+                )
+                full_prompt = f"{st.session_state.dynamic_sys_prompt}\n\nDATA:\n{context_text}\n\nPERTANYAAN: {user_query}"
+                response = llm.invoke(full_prompt)
+                
+                st.session_state["last_answer"] = response.content
+                st.session_state["last_duration"] = round(time.time() - start_time, 2)
+                save_to_log(email, user_query, response.content, st.session_state["last_duration"])
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error: {e}")
 
 st.divider()
-st.caption("Sivita - Virtual Assistant Poltesa @2026")
+st.caption("Sivita Virtual Assistant @2026")
