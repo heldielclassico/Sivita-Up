@@ -25,6 +25,13 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    
+    /* Menaikkan seluruh konten ke atas */
+    .block-container {
+        padding-top: 5px;
+        padding-bottom: 0rem;
+    }
+    
     /* Tambahan untuk benar-benar memastikan tombol github/deploy hilang */
     .stAppDeployButton {display: none;}
     </style>
@@ -124,13 +131,14 @@ if st.session_state.vector_store is None:
 
 # --- 6. UI UTAMA ---
 
-st.title("🎓 Asisten Virtual Poltesa (Sivita)")
-st.markdown("<p style='margin-top: -20px; color: gray;'>Sivita v1.3 | Modular Prompt System</p>", unsafe_allow_html=True)
+# Mengganti st.title dengan Markdown HTML untuk kontrol margin yang presisi
+st.markdown("<h1 style='text-align: center; margin-top: -60px; margin-bottom: 0px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: gray; margin-bottom: 15px;'>Sivita v1.3 | Modular Prompt System</p>", unsafe_allow_html=True)
 
 with st.container(border=True):
     email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
     
-    # Tombol Sinkronkan diletakkan di bawah input email
+    # Tombol Sinkronkan di bawah input email
     if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
         st.cache_data.clear()
         st.session_state.vector_store = None
