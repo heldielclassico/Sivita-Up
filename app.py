@@ -34,7 +34,7 @@ st.markdown(f"""
     /* Container utama panel melayang */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-anchor) {{
         position: fixed;
-        bottom: 15px;
+        bottom: 50px;
         left: 50%;
         transform: translateX(-50%);
         width: 95%;
