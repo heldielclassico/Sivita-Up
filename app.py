@@ -19,30 +19,27 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE UNTUK MENGHILANGKAN MENU, FOOTER, DAN ICON GITHUB ---
+# --- KODE CSS UNTUK TAMPILAN MENGAMBANG, SCROLL, DAN UI CLEAN ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
     header {{visibility: hidden;}}
     
-    /* Menaikkan seluruh konten ke atas */
     .block-container {{
         padding-top: 5px;
-        padding-bottom: 0rem;
+        padding-bottom: 5rem; /* Memberi ruang di bawah agar tidak tertutup floating input */
     }}
     
-    /* PENGATUR JARAK TOMBOL */
     [data-testid="stHorizontalBlock"] {{
         gap: 5px !important;
     }}
     
-    /* Tambahan untuk benar-benar memastikan tombol github/deploy hilang */
     .stAppDeployButton {{display: none;}}
 
     /* --- STYLE AREA JAWABAN SCROLLABLE --- */
     .answer-box {{
-        max-height: 350px;
+        max-height: 300px;
         overflow-y: auto;
         padding: 15px;
         background-color: #f8f9fa;
@@ -53,16 +50,19 @@ st.markdown(f"""
         color: #31333F;
     }}
 
-    /* --- STYLE AREA INPUT SCROLLABLE (WRAPPER DIV) --- */
+    /* --- STYLE AREA INPUT MENGAMBANG (FLOATING & SCROLL) --- */
     .custom-input-group {{
+        position: sticky;
+        bottom: 20px; /* Jarak dari bawah layar */
+        z-index: 1000;
         max-height: 400px;
         overflow-y: auto;
-        padding: 15px;
+        padding: 20px;
         border: 1px solid #dee2e6;
-        border-radius: 10px;
+        border-radius: 15px;
         background-color: #ffffff;
-        box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
-        margin-top: 10px;
+        box-shadow: 0 -8px 25px rgba(0,0,0,0.1); /* Bayangan untuk efek mengambang */
+        margin-top: 20px;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -130,7 +130,6 @@ def semantic_search(query: str, vector_store: Dict, top_k: int = 5):
     results = [vector_store["chunks"][idx]["text"] for idx in indices[0] if idx < len(vector_store["chunks"])]
     return results
 
-# --- 4. FUNGSI: SIMPAN LOG ---
 def save_to_log(email, question, answer="", duration=0):
     try:
         log_url = st.secrets["LOG_URL"]
@@ -155,7 +154,6 @@ if "last_answer" not in st.session_state:
 if "last_duration" not in st.session_state:
     st.session_state["last_duration"] = 0
 
-# Sinkronisasi awal jika data kosong
 if st.session_state.vector_store is None:
     with st.spinner("Mensinkronkan Data & Instruksi..."):
         raw_data, dyn_prompt = get_and_process_data()
@@ -165,24 +163,20 @@ if st.session_state.vector_store is None:
 
 # --- 6. UI UTAMA ---
 
-# Judul Utama
 st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: 0px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: gray; margin-bottom: 15px;'>Sivita v1.3 | Modular Prompt System</p>", unsafe_allow_html=True)
 
-# --- BAGIAN INPUT ---
 with st.container(border=True):
     email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
     
-    # Tombol Sinkronkan
     if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
         st.cache_data.clear()
         st.session_state.vector_store = None
         st.rerun()
 
-    # --- BAGIAN HASIL JAWABAN (SCROLL MANDIRI) ---
+    # --- BAGIAN HASIL JAWABAN (DENGAN SCROLL) ---
     if st.session_state["last_answer"]:
         st.markdown("---")
-        # Wrapper HTML untuk area jawaban agar tidak bocor tag </div>
         full_answer_html = (
             f'<div class="answer-box">'
             f'<div style="font-weight: bold; color: #007bff; margin-bottom: 8px;">🤖 Jawaban Sivita:</div>'
@@ -190,17 +184,15 @@ with st.container(border=True):
             f'</div>'
         )
         st.markdown(full_answer_html, unsafe_allow_html=True)
-        
         st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
         st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
         st.markdown("---")
 
-    # --- WRAPPER DIV UNTUK TEXTAREA DAN TOMBOL PERTANYAAN ---
+    # --- WRAPPER DIV UNTUK INPUT MENGAMBANG & SCROLLABLE ---
     st.markdown('<div class="custom-input-group">', unsafe_allow_html=True)
     
-    user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input", height=150)
+    user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input", height=120)
     
-    # Kolom tombol aksi di dalam div
     col_send, col_del_q = st.columns([1.5, 1])
     with col_send:
         btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
@@ -209,7 +201,6 @@ with st.container(border=True):
         
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Logika Pengiriman Pertanyaan
     if btn_kirim:
         if not is_valid_email(email):
             st.error("Gunakan email @gmail.com")
@@ -223,20 +214,16 @@ with st.container(border=True):
                 try:
                     context_list = semantic_search(user_query, st.session_state.vector_store)
                     context_text = "\n".join(context_list)
-                    
                     llm = ChatOpenAI(
                         model="google/gemini-2.0-flash-lite-001",
                         openai_api_key=st.secrets["OPENROUTER_API_KEY"],
                         openai_api_base="https://openrouter.ai/api/v1",
                         temperature=0.1
                     )
-                    
                     full_prompt = f"{st.session_state.dynamic_sys_prompt}\n\nREFERENSI DATA:\n{context_text}\n\nPERTANYAAN: {user_query}"
-                    
                     response = llm.invoke(full_prompt)
                     st.session_state["last_answer"] = response.content
                     st.session_state["last_duration"] = round(time.time() - start_time, 2)
-                    
                     save_to_log(email, user_query, response.content, st.session_state["last_duration"])
                     st.rerun()
                 except Exception as e:
