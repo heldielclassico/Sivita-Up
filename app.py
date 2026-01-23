@@ -20,26 +20,25 @@ load_dotenv()
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
 # --- KODE UNTUK MENGHILANGKAN MENU, FOOTER, DAN ICON GITHUB ---
-st.markdown("""
+st.markdown(f"""
     <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+    header {{visibility: hidden;}}
     
     /* Menaikkan seluruh konten ke atas */
-    .block-container {
+    .block-container {{
         padding-top: 5px;
         padding-bottom: 0rem;
-    }
+    }}
     
-    /* Merapatkan jarak antar kolom tombol */
-    [data-testid="column"] {
-        padding-left: 5px !important;
-        padding-right: 5px !important;
-    }
+    /* PENGATUR JARAK TOMBOL (Ganti angka 5px di bawah untuk mengatur jarak antar tombol) */
+    [data-testid="stHorizontalBlock"] {{
+        gap: 5px !important;
+    }}
     
     /* Tambahan untuk benar-benar memastikan tombol github/deploy hilang */
-    .stAppDeployButton {display: none;}
+    .stAppDeployButton {{display: none;}}
     </style>
     """, unsafe_allow_html=True)
 
@@ -137,14 +136,14 @@ if st.session_state.vector_store is None:
 
 # --- 6. UI UTAMA ---
 
-# Mengatur Judul dengan posisi khusus (jarak 5 dari atas melalui CSS block-container dan margin-top)
+# Judul dengan margin khusus
 st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: 0px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: gray; margin-bottom: 15px;'>Sivita v1.3 | Modular Prompt System</p>", unsafe_allow_html=True)
 
 with st.container(border=True):
     email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
     
-    # Tombol Sinkronkan diletakkan tepat di bawah input email
+    # Tombol Sinkronkan diletakkan di bawah input email
     if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
         st.cache_data.clear()
         st.session_state.vector_store = None
@@ -152,8 +151,8 @@ with st.container(border=True):
 
     user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input")
     
-    # Menggunakan gap="small" untuk merapatkan tombol Kirim dan Hapus
-    col1, col2 = st.columns(2, gap="small")
+    # Jarak antar kolom ini dikontrol oleh CSS [data-testid="stHorizontalBlock"] di atas
+    col1, col2 = st.columns(2)
     with col1:
         btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
     with col2:
