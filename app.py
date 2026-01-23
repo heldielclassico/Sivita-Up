@@ -132,7 +132,7 @@ if st.session_state.vector_store is None:
 # --- 6. UI UTAMA ---
 
 # Mengganti st.title dengan Markdown HTML untuk kontrol margin yang presisi
-st.markdown("<h1 style='text-align: center; margin-top: -60px; margin-bottom: 0px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: 0px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: gray; margin-bottom: 15px;'>Sivita v1.3 | Modular Prompt System</p>", unsafe_allow_html=True)
 
 with st.container(border=True):
