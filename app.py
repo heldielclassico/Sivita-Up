@@ -26,24 +26,32 @@ st.markdown(f"""
     footer {{visibility: hidden;}}
     header {{visibility: hidden;}}
     
-    /* Ruang bawah agar konten tidak tertutup panel melayang saat scroll mentok */
+    /* Ruang bawah agar konten tidak tertutup panel melayang */
     .block-container {{
         padding-top: 5px;
         padding-bottom: 250px; 
     }}
 
-    /* FORCE TOMBOL BERSEBELAHAN DI MOBILE */
+    /* FORCE TOMBOL BERSEBELAHAN & PERKECIL LEBAR */
     [data-testid="column"] {{
         width: auto !important;
-        flex: 1 1 auto !important;
+        flex: 0 1 auto !important;
     }}
     
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        align-items: flex-end !important;
-        gap: 10px !important;
+        justify-content: flex-start !important;
+        gap: 8px !important;
+    }}
+
+    /* Batas lebar minimal agar tombol tetap proporsional */
+    button[kind="primary"] {{
+        min-width: 100px !important;
+    }}
+    button[kind="secondary"] {{
+        min-width: 80px !important;
     }}
 
     /* STYLE UNTUK MEMBUAT AREA INPUT TETAP DI BAWAH (STICKY/FIXED) */
@@ -85,10 +93,8 @@ def get_and_process_data() -> Tuple[List[Dict], str]:
         df_list = pd.read_csv(central_url)
         tab_names = df_list['NamaTab'].tolist()
         base_url = central_url.split('/export')[0]
-        
         all_chunks = []
         full_instructions = []
-        
         for tab in tab_names:
             tab_url = f"{base_url}/gviz/tq?tqx=out:csv&sheet={tab.replace(' ', '%20')}"
             try:
@@ -97,13 +103,11 @@ def get_and_process_data() -> Tuple[List[Dict], str]:
                     if 'Isi' in df.columns:
                         full_instructions = df['Isi'].dropna().astype(str).tolist()
                     continue
-                
                 for idx, row in df.iterrows():
                     row_content = f"Data {tab}: " + ", ".join([f"{col} adalah {val}" for col, val in row.items() if pd.notna(val)])
                     all_chunks.append({"text": row_content, "source": tab})
             except Exception:
                 continue
-        
         final_prompt = "\n".join(full_instructions) if full_instructions else "Anda adalah Sivita."
         return all_chunks, final_prompt
     except Exception as e:
@@ -132,12 +136,7 @@ def semantic_search(query: str, vector_store: Dict, top_k: int = 5):
 def save_to_log(email, question, answer="", duration=0):
     try:
         log_url = st.secrets["LOG_URL"]
-        payload = {
-            "email": email,
-            "question": question,
-            "answer": answer,
-            "duration": f"{duration} detik"
-        }
+        payload = {"email": email, "question": question, "answer": answer, "duration": f"{duration} detik"}
         requests.post(log_url, json=payload, timeout=5)
     except Exception:
         pass
@@ -162,24 +161,21 @@ if st.session_state.vector_store is None:
 
 # --- 5. UI UTAMA ---
 
-# Judul Utama dengan margin rapat
 st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: -15px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: gray; margin-top: 0px; margin-bottom: 15px;'>Sivita v1.3 | Fixed Floating Mode</p>", unsafe_allow_html=True)
 
-# Area Email & Sinkronisasi
 email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
 if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
     st.cache_data.clear()
     st.session_state.vector_store = None
     st.rerun()
 
-# --- TAMPILAN HASIL JAWABAN (Scrollable) ---
+# --- TAMPILAN HASIL JAWABAN ---
 if st.session_state["last_answer"]:
     st.markdown("---")
     with st.chat_message("assistant"):
         st.markdown(st.session_state["last_answer"])
     
-    # Tombol Hapus Jawaban di bawah caption durasi
     col_info, col_clear = st.columns([2.5, 1])
     with col_info:
         st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
@@ -193,11 +189,11 @@ with st.container():
     
     user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input", height=80)
     
-    # Tombol dipaksa bersebelahan dengan CSS flex-row di atas
-    col_send, col_del_q = st.columns([2.5, 1])
+    # Kolom dengan rasio kecil + spacer agar tombol tetap ringkas dan di kiri
+    col_send, col_del_q, col_spacer = st.columns([0.3, 0.25, 0.45])
     
     with col_send:
-        btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
+        btn_kirim = st.button("Kirim 🚀", use_container_width=True, type="primary")
     with col_del_q:
         st.button("Hapus Q 🗑️", on_click=clear_input_only, use_container_width=True)
 
@@ -214,20 +210,16 @@ with st.container():
                 try:
                     context_list = semantic_search(user_query, st.session_state.vector_store)
                     context_text = "\n".join(context_list)
-                    
                     llm = ChatOpenAI(
                         model="google/gemini-2.0-flash-lite-001",
                         openai_api_key=st.secrets["OPENROUTER_API_KEY"],
                         openai_api_base="https://openrouter.ai/api/v1",
                         temperature=0.1
                     )
-                    
                     full_prompt = f"{st.session_state.dynamic_sys_prompt}\n\nREFERENSI DATA:\n{context_text}\n\nPERTANYAAN: {user_query}"
-                    
                     response = llm.invoke(full_prompt)
                     st.session_state["last_answer"] = response.content
                     st.session_state["last_duration"] = round(time.time() - start_time, 2)
-                    
                     save_to_log(email, user_query, response.content, st.session_state["last_duration"])
                     st.rerun()
                 except Exception as e:
