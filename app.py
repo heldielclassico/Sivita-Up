@@ -19,25 +19,38 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE UNTUK MENGHILANGKAN MENU, FOOTER, DAN ICON GITHUB ---
+# --- KODE CSS UNTUK MENYEMBUNYIKAN MENU & MEMBUAT INPUT MENGAMBANG ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
     header {{visibility: hidden;}}
     
-    /* Menaikkan seluruh konten ke atas */
     .block-container {{
         padding-top: 5px;
-        padding-bottom: 0rem;
+        padding-bottom: 10rem; /* Beri ruang di bawah agar konten tidak tertutup input */
     }}
-    
+
     /* PENGATUR JARAK TOMBOL */
     [data-testid="stHorizontalBlock"] {{
         gap: 5px !important;
     }}
     
-    /* Tambahan untuk benar-benar memastikan tombol github/deploy hilang */
+    /* STYLE UNTUK MEMBUAT INPUT & TOMBOL MENGAMBANG (STICKY) */
+    div[data-testid="stVerticalBlock"] > div:has(div.floating-input) {{
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100%;
+        max-width: 700px; /* Sesuaikan dengan layout centered Streamlit */
+        background-color: white;
+        padding: 15px;
+        border-radius: 15px;
+        box-shadow: 0 -5px 15px rgba(0,0,0,0.1);
+        z-index: 999;
+    }}
+
     .stAppDeployButton {{display: none;}}
     </style>
     """, unsafe_allow_html=True)
@@ -61,10 +74,8 @@ def get_and_process_data() -> Tuple[List[Dict], str]:
         df_list = pd.read_csv(central_url)
         tab_names = df_list['NamaTab'].tolist()
         base_url = central_url.split('/export')[0]
-        
         all_chunks = []
         full_instructions = []
-        
         for tab in tab_names:
             tab_url = f"{base_url}/gviz/tq?tqx=out:csv&sheet={tab.replace(' ', '%20')}"
             try:
@@ -73,13 +84,11 @@ def get_and_process_data() -> Tuple[List[Dict], str]:
                     if 'Isi' in df.columns:
                         full_instructions = df['Isi'].dropna().astype(str).tolist()
                     continue
-                
                 for idx, row in df.iterrows():
                     row_content = f"Data {tab}: " + ", ".join([f"{col} adalah {val}" for col, val in row.items() if pd.notna(val)])
                     all_chunks.append({"text": row_content, "source": tab})
             except Exception:
                 continue
-        
         final_prompt = "\n".join(full_instructions) if full_instructions else "Anda adalah Sivita."
         return all_chunks, final_prompt
     except Exception as e:
@@ -105,21 +114,15 @@ def semantic_search(query: str, vector_store: Dict, top_k: int = 5):
     results = [vector_store["chunks"][idx]["text"] for idx in indices[0] if idx < len(vector_store["chunks"])]
     return results
 
-# --- 4. FUNGSI: SIMPAN LOG ---
 def save_to_log(email, question, answer="", duration=0):
     try:
         log_url = st.secrets["LOG_URL"]
-        payload = {
-            "email": email,
-            "question": question,
-            "answer": answer,
-            "duration": f"{duration} detik"
-        }
+        payload = {"email": email, "question": question, "answer": answer, "duration": f"{duration} detik"}
         requests.post(log_url, json=payload, timeout=5)
-    except Exception as e:
-        print(f"Log Error: {e}")
+    except Exception:
+        pass
 
-# --- 5. INISIALISASI ---
+# --- 4. INISIALISASI ---
 
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
@@ -130,49 +133,47 @@ if "last_answer" not in st.session_state:
 if "last_duration" not in st.session_state:
     st.session_state["last_duration"] = 0
 
-# Sinkronisasi awal jika data kosong
 if st.session_state.vector_store is None:
-    with st.spinner("Mensinkronkan Data & Instruksi..."):
+    with st.spinner("Mensinkronkan Data..."):
         raw_data, dyn_prompt = get_and_process_data()
         if raw_data:
             st.session_state.vector_store = create_vector_store(raw_data)
             st.session_state.dynamic_sys_prompt = dyn_prompt
 
-# --- 6. UI UTAMA ---
+# --- 5. UI UTAMA ---
 
-# Judul Utama
 st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: 0px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray; margin-bottom: 15px;'>Sivita v1.3 | Modular Prompt System</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: gray; margin-bottom: 15px;'>Sivita v1.3 | Floating Input Mode</p>", unsafe_allow_html=True)
 
-# --- BAGIAN INPUT ---
-with st.container(border=True):
-    email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
+# Tampilan Konten Atas
+email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
+if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
+    st.cache_data.clear()
+    st.session_state.vector_store = None
+    st.rerun()
+
+# Hasil Jawaban (Berada di tengah halaman, bisa di-scroll)
+if st.session_state["last_answer"]:
+    st.markdown("---")
+    with st.chat_message("assistant"):
+        st.markdown(st.session_state["last_answer"])
+    st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
+    st.markdown("---")
+
+# --- BAGIAN INPUT MENGAMBANG (STICKY) ---
+# Kita gunakan container dengan bantuan CSS class dummy 'floating-input'
+with st.container():
+    st.markdown('<div class="floating-input"></div>', unsafe_allow_html=True)
     
-    # Tombol Sinkronkan
-    if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
-        st.cache_data.clear()
-        st.session_state.vector_store = None
-        st.rerun()
-
-    # --- BAGIAN HASIL JAWABAN (Sekarang berada di bawah tombol Sinkronkan) ---
-    if st.session_state["last_answer"]:
-        st.markdown("---")
-        with st.chat_message("assistant"):
-            st.markdown(st.session_state["last_answer"])
-        st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
-        st.markdown("---")
-
-    user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input")
+    user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input", height=100)
     
-    # Kolom tombol aksi
     col_send, col_del_q, col_del_a = st.columns([1.5, 1, 1])
-    
     with col_send:
-        btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
+        btn_kirim = st.button("Kirim 🚀", use_container_width=True, type="primary")
     with col_del_q:
-        st.button("Hapus Pertanyaan 🗑️", on_click=clear_input_only, use_container_width=True)
+        st.button("Hapus Q 🗑️", on_click=clear_input_only, use_container_width=True)
     with col_del_a:
-        st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
+        st.button("Hapus A ✨", on_click=clear_answer_only, use_container_width=True)
 
     if btn_kirim:
         if not is_valid_email(email):
@@ -180,31 +181,27 @@ with st.container(border=True):
         elif not user_query:
             st.warning("Tuliskan pertanyaan.")
         elif st.session_state.vector_store is None:
-            st.error("Data belum siap, silakan klik tombol Sinkronkan Ulang.")
+            st.error("Data belum siap.")
         else:
             with st.spinner("Mencari jawaban..."):
                 start_time = time.time()
                 try:
                     context_list = semantic_search(user_query, st.session_state.vector_store)
                     context_text = "\n".join(context_list)
-                    
                     llm = ChatOpenAI(
                         model="google/gemini-2.0-flash-lite-001",
                         openai_api_key=st.secrets["OPENROUTER_API_KEY"],
                         openai_api_base="https://openrouter.ai/api/v1",
                         temperature=0.1
                     )
-                    
-                    full_prompt = f"{st.session_state.dynamic_sys_prompt}\n\nREFERENSI DATA:\n{context_text}\n\nPERTANYAAN: {user_query}"
-                    
+                    full_prompt = f"{st.session_state.dynamic_sys_prompt}\n\nREFERENSI:\n{context_text}\n\nPERTANYAAN: {user_query}"
                     response = llm.invoke(full_prompt)
                     st.session_state["last_answer"] = response.content
                     st.session_state["last_duration"] = round(time.time() - start_time, 2)
-                    
                     save_to_log(email, user_query, response.content, st.session_state["last_duration"])
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error: {e}")
 
 st.divider()
-st.caption("Sivita - Virtual Assistant Poltesa @2026")
+st.caption("Sivita - Poltesa @2026")
