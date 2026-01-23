@@ -19,7 +19,7 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE CSS AGRESIF UNTUK MENGHAPUS ELEMEN PUTIH ---
+# --- KODE CSS MODERN & PEMBERSIH ELEMEN PENGGANGGU ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
@@ -31,72 +31,87 @@ st.markdown(f"""
         padding-bottom: 220px; 
     }}
 
-    /* Container utama panel melayang */
+    /* Container Utama Panel Melayang Modern */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-anchor) {{
         position: fixed;
-        bottom: 50px;
+        bottom: 15px;
         left: 50%;
         transform: translateX(-50%);
         width: 95%;
         max-width: 730px; 
         background-color: #ffffff;
-        padding: 10px 12px;
+        padding: 12px;
         border: 1px solid #e0e0e0;
-        border-radius: 20px;
+        border-radius: 24px;
         z-index: 999;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        overflow: visible !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     }}
 
-    /* HAPUS ELEMEN PUTIH LONJONG (Sangat Agresif) */
-    div[data-testid="stFormSubmitButton"], 
-    div[data-testid="stWidgetLabel"],
-    .stTextArea label,
-    div[data-baseweb="base-input"] + div {{
-        display: none !important;
-        height: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-    }}
-
-    /* Menghilangkan border dan shadow default textarea */
+    /* --- STYLING TEXT AREA MODERN --- */
     .stTextArea textarea {{
-        border: none !important;
-        background-color: transparent !important;
-        padding-right: 110px !important; 
+        background-color: #f8f9fa !important;
+        border: 1px solid #eeeeee !important;
+        border-radius: 16px !important;
+        padding: 15px 115px 15px 15px !important; 
         resize: none !important;
         font-size: 16px !important;
-        min-height: 80px !important;
-        box-shadow: none !important;
+        min-height: 95px !important;
+        color: #31333F !important;
+        transition: all 0.3s ease !important;
     }}
 
-    /* Tombol melayang di pojok kanan bawah */
+    .stTextArea textarea:focus {{
+        background-color: #ffffff !important;
+        border-color: #ff4b4b !important;
+        box-shadow: 0 0 0 3px rgba(255, 75, 75, 0.1) !important;
+    }}
+
+    /* Menghilangkan elemen putih lonjong (instruksi/label) secara total */
+    div[data-testid="stTextArea"] > div:nth-child(2),
+    div[data-testid="stWidgetLabel"],
+    .stTextArea label,
+    .stTextArea div[aria-live="polite"] {{
+        display: none !important;
+        height: 0px !important;
+        pointer-events: none !important;
+    }}
+
+    /* Tombol sejajar dan berdekatan di pojok kanan bawah */
     div[data-testid="column"]:has(button) {{
         position: absolute !important;
-        right: 15px !important;
-        bottom: 15px !important;
+        right: 25px !important;
+        bottom: 25px !important;
         z-index: 1001 !important;
         width: auto !important;
+        flex: 0 1 auto !important;
     }}
     
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
-        gap: 6px !important; 
         flex-direction: row !important;
+        gap: 8px !important; 
     }}
 
-    /* Style tombol bulat */
+    /* Styling tombol modern */
     .stButton > button {{
-        border-radius: 50px !important;
-        padding: 0px 8px !important;
-        height: 38px !important;
-        min-width: 45px !important;
+        border-radius: 12px !important;
+        padding: 0px 10px !important;
+        height: 42px !important;
+        min-width: 48px !important;
         border: 1px solid #f0f0f0 !important;
-        background-color: white !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
+        transition: transform 0.2s ease !important;
     }}
 
+    .stButton > button:hover {{
+        transform: translateY(-2px) !important;
+        border-color: #ff4b4b !important;
+    }}
+
+    /* Tombol Kirim (Primary) */
     button[kind="primary"] {{
-        background-color: #ff4b4b !important;
+        background: linear-gradient(135deg, #ff4b4b 0%, #ff7676 100%) !important;
         color: white !important;
         border: none !important;
     }}
@@ -105,7 +120,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. FUNGSI LOGIKA ---
+# --- 3. FUNGSI LOGIKA (TIDAK BERUBAH) ---
 
 def is_valid_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', email) is not None
@@ -168,7 +183,7 @@ def save_to_log(email, question, answer="", duration=0):
 
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
-    with st.spinner("Mensinkronkan Data..."):
+    with st.spinner("Sinkronisasi Data..."):
         raw_data, dyn_prompt = get_and_process_data()
         if raw_data:
             st.session_state.vector_store = create_vector_store(raw_data)
@@ -177,7 +192,7 @@ if "vector_store" not in st.session_state:
 if "last_answer" not in st.session_state: st.session_state["last_answer"] = ""
 if "last_duration" not in st.session_state: st.session_state["last_duration"] = 0
 
-# --- 5. UI UTAMA ---
+# --- 5. UI UTAMA (TIDAK BERUBAH) ---
 
 st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: -15px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: gray; margin-top: 0px; margin-bottom: 15px;'>Sivita v1.3 | Fixed UI</p>", unsafe_allow_html=True)
@@ -188,6 +203,7 @@ if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
     st.session_state.vector_store = None
     st.rerun()
 
+# Area Tampilan Jawaban
 if st.session_state["last_answer"]:
     st.markdown("---")
     with st.chat_message("assistant"):
@@ -197,24 +213,23 @@ if st.session_state["last_answer"]:
     with col_clear: st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
     st.markdown("---")
 
-# --- PANEL INPUT (Hapus paksa elemen pengganggu) ---
+# --- PANEL INPUT MENGAMBANG DENGAN TEXT AREA MODERN ---
 with st.container():
     st.markdown('<div class="floating-anchor"></div>', unsafe_allow_html=True)
     
-    # Text area tanpa label
     user_query = st.text_area(
-        "hidden_label", 
+        "Label", 
         placeholder="Tanyakan sesuatu pada Sivita...", 
         key="user_query_input", 
         label_visibility="collapsed"
     )
     
-    # Tombol Berdekatan
+    # Tombol Berdekatan (🗑️ & 🚀)
     c1, c2 = st.columns([1, 1])
     with c1:
-        st.button("🗑️", on_click=clear_input_only)
+        st.button("🗑️", on_click=clear_input_only, help="Hapus teks")
     with c2:
-        btn_kirim = st.button("🚀", type="primary")
+        btn_kirim = st.button("🚀", type="primary", help="Kirim pertanyaan")
 
     if btn_kirim:
         if not is_valid_email(email):
