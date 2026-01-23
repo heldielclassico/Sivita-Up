@@ -29,7 +29,7 @@ st.markdown(f"""
     /* Ruang bawah agar konten tidak tertutup panel melayang saat scroll mentok */
     .block-container {{
         padding-top: 5px;
-        padding-bottom: 250px; 
+        padding-bottom: 280px; 
     }}
 
     /* Jarak antar tombol aksi (Kirim, Hapus Q, Hapus A) */
@@ -40,16 +40,17 @@ st.markdown(f"""
     /* STYLE UNTUK MEMBUAT AREA INPUT TETAP DI BAWAH (STICKY/FIXED) */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-anchor) {{
         position: fixed;
-        bottom: 0px;
+        bottom: 20px; /* Posisi panel dinaikkan dari dasar layar */
         left: 50%;
         transform: translateX(-50%);
-        width: 100%;
+        width: 95%;
         max-width: 730px; 
         background-color: #f9f9f9;
         padding: 20px;
-        border-top: 2px solid #eeeeee;
+        border: 1px solid #eeeeee;
+        border-radius: 20px; /* Sudut lebih membulat/rounded */
         z-index: 999;
-        box-shadow: 0 -10px 20px rgba(0,0,0,0.05);
+        box-shadow: 0 -5px 25px rgba(0,0,0,0.1); /* Bayangan lebih halus */
     }}
 
     /* Menghilangkan tombol deploy Streamlit */
@@ -57,7 +58,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. FUNGSI LOGIKA & RAG (TETAP SAMA) ---
+# --- 3. FUNGSI LOGIKA & RAG ---
 
 def is_valid_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', email) is not None
@@ -153,7 +154,7 @@ if st.session_state.vector_store is None:
 
 # --- 5. UI UTAMA ---
 
-# Judul Utama dengan margin yang didekatkan (Sangat Rapat)
+# Judul Utama dengan margin rapat
 st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: -15px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: gray; margin-top: 0px; margin-bottom: 15px;'>Sivita v1.3 | Fixed Floating Mode</p>", unsafe_allow_html=True)
 
@@ -172,7 +173,7 @@ if st.session_state["last_answer"]:
     st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
     st.markdown("---")
 
-# --- BAGIAN INPUT MENGAMBANG (FIXED DI BAWAH) ---
+# --- BAGIAN INPUT MENGAMBANG (FIXED DENGAN POSISI NAIK) ---
 with st.container():
     # Elemen jangkar untuk deteksi CSS
     st.markdown('<div class="floating-anchor"></div>', unsafe_allow_html=True)
