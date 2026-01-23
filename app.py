@@ -52,18 +52,6 @@ st.markdown(f"""
         line-height: 1.6;
         color: #31333F;
     }}
-
-    /* --- STYLE AREA INPUT SCROLLABLE (WRAPPER DIV) --- */
-    .custom-input-group {{
-        max-height: 400px;
-        overflow-y: auto;
-        padding: 15px;
-        border: 1px solid #dee2e6;
-        border-radius: 10px;
-        background-color: #ffffff;
-        box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
-        margin-top: 10px;
-    }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -182,7 +170,6 @@ with st.container(border=True):
     # --- BAGIAN HASIL JAWABAN (SCROLL MANDIRI) ---
     if st.session_state["last_answer"]:
         st.markdown("---")
-        # Wrapper HTML untuk area jawaban agar tidak bocor tag </div>
         full_answer_html = (
             f'<div class="answer-box">'
             f'<div style="font-weight: bold; color: #007bff; margin-bottom: 8px;">🤖 Jawaban Sivita:</div>'
@@ -195,19 +182,16 @@ with st.container(border=True):
         st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
         st.markdown("---")
 
-    # --- WRAPPER DIV UNTUK TEXTAREA DAN TOMBOL PERTANYAAN ---
-    st.markdown('<div class="custom-input-group">', unsafe_allow_html=True)
-    
-    user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input", height=150)
-    
-    # Kolom tombol aksi di dalam div
-    col_send, col_del_q = st.columns([1.5, 1])
-    with col_send:
-        btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
-    with col_del_q:
-        st.button("Hapus Pertanyaan 🗑️", on_click=clear_input_only, use_container_width=True)
+    # --- BAGIAN INPUT PERTANYAAN ---
+    # Menggunakan container border sebagai pengganti div manual untuk keamanan UI
+    with st.container(border=True):
+        user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input", height=150)
         
-    st.markdown('</div>', unsafe_allow_html=True)
+        col_send, col_del_q = st.columns([1.5, 1])
+        with col_send:
+            btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
+        with col_del_q:
+            st.button("Hapus Pertanyaan 🗑️", on_click=clear_input_only, use_container_width=True)
 
     # Logika Pengiriman Pertanyaan
     if btn_kirim:
