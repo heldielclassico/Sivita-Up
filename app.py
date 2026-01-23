@@ -19,7 +19,7 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE CSS UNTUK FIX TOMBOL TERTUTUP & MERAPATKAN TOMBOL ---
+# --- KODE CSS AGRESIF UNTUK MENGHAPUS ELEMEN PUTIH ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
@@ -31,7 +31,7 @@ st.markdown(f"""
         padding-bottom: 220px; 
     }}
 
-    /* Container utama panel melayang di bawah */
+    /* Container utama panel melayang */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-anchor) {{
         position: fixed;
         bottom: 15px;
@@ -45,9 +45,21 @@ st.markdown(f"""
         border-radius: 20px;
         z-index: 999;
         box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        overflow: visible !important;
     }}
 
-    /* Menghilangkan elemen putih (label/border) yang menutupi tombol */
+    /* HAPUS ELEMEN PUTIH LONJONG (Sangat Agresif) */
+    div[data-testid="stFormSubmitButton"], 
+    div[data-testid="stWidgetLabel"],
+    .stTextArea label,
+    div[data-baseweb="base-input"] + div {{
+        display: none !important;
+        height: 0px !important;
+        margin: 0px !important;
+        padding: 0px !important;
+    }}
+
+    /* Menghilangkan border dan shadow default textarea */
     .stTextArea textarea {{
         border: none !important;
         background-color: transparent !important;
@@ -55,43 +67,34 @@ st.markdown(f"""
         resize: none !important;
         font-size: 16px !important;
         min-height: 80px !important;
-        margin-bottom: 0px !important;
+        box-shadow: none !important;
     }}
 
-    /* Menghilangkan pembungkus widget yang menyebabkan elemen putih melayang */
-    div[data-testid="stWidgetLabel"] {{
-        display: none !important;
-    }}
-
-    /* MEMAKSA KOLOM TOMBOL BERDEKATAN DI KANAN BAWAH */
+    /* Tombol melayang di pojok kanan bawah */
     div[data-testid="column"]:has(button) {{
         position: absolute !important;
-        right: 12px !important;
+        right: 15px !important;
         bottom: 15px !important;
-        z-index: 1000 !important;
+        z-index: 1001 !important;
         width: auto !important;
-        flex: 0 1 auto !important;
     }}
     
-    /* Gap dibuat sangat kecil agar tombol berdekatan */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        align-items: center !important;
         gap: 6px !important; 
+        flex-direction: row !important;
     }}
 
-    /* Styling tombol bulat agar ramping */
+    /* Style tombol bulat */
     .stButton > button {{
         border-radius: 50px !important;
         padding: 0px 8px !important;
-        height: 36px !important;
-        min-width: 42px !important;
+        height: 38px !important;
+        min-width: 45px !important;
         border: 1px solid #f0f0f0 !important;
+        background-color: white !important;
     }}
 
-    /* Warna tombol Kirim (Primary) */
     button[kind="primary"] {{
         background-color: #ff4b4b !important;
         color: white !important;
@@ -165,7 +168,7 @@ def save_to_log(email, question, answer="", duration=0):
 
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
-    with st.spinner("Sinkronisasi Data..."):
+    with st.spinner("Mensinkronkan Data..."):
         raw_data, dyn_prompt = get_and_process_data()
         if raw_data:
             st.session_state.vector_store = create_vector_store(raw_data)
@@ -185,7 +188,6 @@ if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
     st.session_state.vector_store = None
     st.rerun()
 
-# --- TAMPILAN JAWABAN ---
 if st.session_state["last_answer"]:
     st.markdown("---")
     with st.chat_message("assistant"):
@@ -195,23 +197,24 @@ if st.session_state["last_answer"]:
     with col_clear: st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
     st.markdown("---")
 
-# --- PANEL INPUT OVERLAY (FIXED) ---
+# --- PANEL INPUT (Hapus paksa elemen pengganggu) ---
 with st.container():
     st.markdown('<div class="floating-anchor"></div>', unsafe_allow_html=True)
     
+    # Text area tanpa label
     user_query = st.text_area(
-        "Input", 
+        "hidden_label", 
         placeholder="Tanyakan sesuatu pada Sivita...", 
         key="user_query_input", 
         label_visibility="collapsed"
     )
     
-    # Kolom tombol agar berdekatan di kanan bawah
+    # Tombol Berdekatan
     c1, c2 = st.columns([1, 1])
     with c1:
-        st.button("🗑️", on_click=clear_input_only, help="Hapus Teks")
+        st.button("🗑️", on_click=clear_input_only)
     with c2:
-        btn_kirim = st.button("🚀", type="primary", help="Kirim")
+        btn_kirim = st.button("🚀", type="primary")
 
     if btn_kirim:
         if not is_valid_email(email):
