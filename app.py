@@ -19,66 +19,44 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE CSS UNTUK LAYOUT KUSTOM TOTAL ---
+# --- KODE CSS UNTUK TAMPILAN STANDAR (FLOW NORMAL) ---
 st.markdown(f"""
     <style>
-    /* 1. Hilangkan Header & Footer bawaan Streamlit secara total */
-    header[data-testid="stHeader"] {{
-        display: none !important;
-    }}
-    footer {{visibility: hidden !important;}}
-    #MainMenu {{visibility: hidden !important;}}
-    .stAppDeployButton {{display: none !important;}}
+    /* Sembunyikan elemen dekoratif bawaan Streamlit */
+    header[data-testid="stHeader"] {{ display: none !important; }}
+    footer {{ visibility: hidden !important; }}
+    #MainMenu {{ visibility: hidden !important; }}
+    .stAppDeployButton {{ display: none !important; }}
 
-    /* 2. Atur kontainer utama */
+    /* Atur margin konten agar rapi */
     .block-container {{
         max-width: 800px;
-        padding-top: 180px !important; /* Ruang untuk Header Kustom */
-        padding-bottom: 220px !important; /* Ruang untuk Footer Kustom */
+        padding-top: 2rem;
+        padding-bottom: 5rem;
     }}
 
-    /* 3. BAGIAN 1: HEADER KUSTOM (FIXED) */
-    .custom-header {{
-        position: fixed;
-        top: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 100%;
-        max-width: 800px;
-        background-color: white;
-        z-index: 9999;
-        padding: 20px;
-        border-bottom: 2px solid #f1f1f1;
-    }}
-
-    /* 4. BAGIAN 3: FOOTER KUSTOM (FIXED) */
-    .custom-footer {{
-        position: fixed;
-        bottom: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 100%;
-        max-width: 800px;
-        background-color: white;
-        z-index: 9999;
-        padding: 15px 20px;
-        border-top: 2px solid #f1f1f1;
-        box-shadow: 0 -5px 15px rgba(0,0,0,0.05);
-    }}
-
-    /* Styling Answer Box agar rapi saat di-scroll */
+    /* Styling Answer Box */
     .answer-box {{
-        padding: 20px;
+        padding: 25px;
         background-color: #f8f9fa;
-        border-radius: 12px;
+        border-radius: 15px;
         border: 1px solid #e0e0e0;
-        margin-bottom: 10px;
-        line-height: 1.6;
+        line-height: 1.7;
+        color: #1f2937;
+        margin-bottom: 20px;
+    }}
+
+    /* Area Input Wrapper untuk pemisah visual */
+    .input-section {{
+        padding: 20px;
+        background-color: #ffffff;
+        border-top: 1px solid #eee;
+        margin-top: 30px;
     }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. FUNGSI LOGIKA (TETAP SAMA) ---
+# --- 3. FUNGSI LOGIKA ---
 
 def is_valid_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', email) is not None
@@ -140,54 +118,65 @@ if st.session_state.vector_store is None:
 
 # --- 5. RENDER UI ---
 
-# BAGIAN 1: HEADER KUSTOM (TETAP DI ATAS)
-st.markdown('<div class="custom-header">', unsafe_allow_html=True)
-st.markdown("<h2 style='text-align: center; margin-top: 0; margin-bottom: 10px;'>🎓 Sivita Poltesa</h2>", unsafe_allow_html=True)
-with st.expander("⚙️ Konfigurasi Email & Sinkronisasi", expanded=False):
+# BAGIAN 1: ATAS (STATIS)
+st.markdown("<h1 style='text-align: center;'>🎓 Sivita Poltesa</h1>", unsafe_allow_html=True)
+with st.expander("⚙️ Konfigurasi Akun & Data", expanded=False):
     email = st.text_input("Email Gmail:", placeholder="nama@gmail.com")
-    if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
+    if st.button("🔄 Perbarui Data", use_container_width=True):
         st.cache_data.clear()
         st.session_state.vector_store = None
         st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
 
-# BAGIAN 2: JAWABAN (TENGAH - DAPAT DISCROLL)
+st.divider()
+
+# BAGIAN 2: JAWABAN (TENGAH)
 if st.session_state["last_answer"]:
-    st.markdown("### 🤖 Jawaban Sivita")
+    st.markdown("### 🤖 Respon Sivita")
     st.markdown(f'<div class="answer-box">{st.session_state["last_answer"]}</div>', unsafe_allow_html=True)
-    st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
+    st.caption(f"⏱️ Diproses dalam {st.session_state['last_duration']} detik")
     st.button("Hapus Jawaban ✨", on_click=clear_answer_only)
 else:
-    st.info("Selamat datang! Saya Sivita, siap membantu menjawab pertanyaan Anda seputar kampus.")
+    st.info("Halo! Silakan ajukan pertanyaan seputar kampus Poltesa pada kolom di bawah.")
 
-# BAGIAN 3: FOOTER KUSTOM (TETAP DI BAWAH)
-st.markdown('<div class="custom-footer">', unsafe_allow_html=True)
-user_query = st.text_area("Input", placeholder="Ketik pertanyaan Anda di sini...", key="user_query_input", height=80, label_visibility="collapsed")
+# BAGIAN 3: INPUT (BAWAH)
+st.markdown('<div class="input-section">', unsafe_allow_html=True)
+user_query = st.text_area(
+    "Apa yang ingin Anda ketahui?", 
+    placeholder="Contoh: Bagaimana cara daftar ulang?", 
+    key="user_query_input", 
+    height=120
+)
 
-col_send, col_clear = st.columns([2, 1])
+col_send, col_clear = st.columns([1.5, 1])
 with col_send:
-    btn_kirim = st.button("Kirim 🚀", use_container_width=True, type="primary")
+    btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
 with col_clear:
-    st.button("Bersihkan 🗑️", on_click=clear_input_only, use_container_width=True)
+    st.button("Bersihkan Teks 🗑️", on_click=clear_input_only, use_container_width=True)
 
-st.markdown("<div style='text-align: center; color: #9ca3af; font-size: 0.75rem; margin-top: 10px;'>Sivita Virtual Assistant Poltesa @2026</div>", unsafe_allow_html=True)
+st.markdown("<br><p style='text-align: center; color: #888; font-size: 0.8rem;'>Sivita Virtual Assistant Poltesa @2026</p>", unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 6. LOGIKA PENGIRIMAN ---
+# --- 6. LOGIKA BACKEND ---
 if btn_kirim:
     if not is_valid_email(email):
-        st.error("Gunakan email @gmail.com yang valid.")
+        st.error("Masukkan email @gmail.com yang valid untuk melanjutkan.")
     elif not user_query:
-        st.warning("Pertanyaan kosong.")
+        st.warning("Silakan ketik pertanyaan terlebih dahulu.")
     else:
-        with st.spinner("Berpikir..."):
+        with st.spinner("Sivita sedang mencari jawaban..."):
             start_time = time.time()
             try:
                 context = "\n".join(semantic_search(user_query, st.session_state.vector_store))
-                llm = ChatOpenAI(model="google/gemini-2.0-flash-lite-001", openai_api_key=st.secrets["OPENROUTER_API_KEY"], openai_api_base="https://openrouter.ai/api/v1", temperature=0.1)
-                full_prompt = f"{st.session_state.dynamic_sys_prompt}\n\nDATA:\n{context}\n\nPERTANYAAN: {user_query}"
+                llm = ChatOpenAI(
+                    model="google/gemini-2.0-flash-lite-001",
+                    openai_api_key=st.secrets["OPENROUTER_API_KEY"],
+                    openai_api_base="https://openrouter.ai/api/v1",
+                    temperature=0.1
+                )
+                full_prompt = f"{st.session_state.dynamic_sys_prompt}\n\nREFERENSI:\n{context}\n\nPERTANYAAN: {user_query}"
                 res = llm.invoke(full_prompt)
                 st.session_state["last_answer"] = res.content
                 st.session_state["last_duration"] = round(time.time() - start_time, 2)
                 st.rerun()
-            except Exception as e: st.error(f"Error: {e}")
+            except Exception as e:
+                st.error(f"Terjadi kesalahan teknis: {e}")
