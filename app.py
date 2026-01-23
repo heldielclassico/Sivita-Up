@@ -129,14 +129,15 @@ st.markdown("<p style='margin-top: -20px; color: gray;'>Sivita v1.3 | Modular Pr
 
 with st.container(border=True):
     email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
-    user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input")
     
-    # Tombol Sinkronkan di atas tombol Kirim
+    # Tombol Sinkronkan diletakkan di bawah input email
     if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
         st.cache_data.clear()
         st.session_state.vector_store = None
         st.rerun()
 
+    user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input")
+    
     col1, col2 = st.columns(2)
     with col1:
         btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
