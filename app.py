@@ -144,22 +144,23 @@ if st.session_state.vector_store is None:
 st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: 0px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: gray; margin-bottom: 15px;'>Sivita v1.3 | Modular Prompt System</p>", unsafe_allow_html=True)
 
-# --- BAGIAN HASIL JAWABAN (Diletakkan di atas kotak input) ---
-if st.session_state["last_answer"]:
-    with st.chat_message("assistant"):
-        st.markdown(st.session_state["last_answer"])
-    st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
-    st.markdown("---")
-
 # --- BAGIAN INPUT ---
 with st.container(border=True):
     email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
     
-    # Tombol Sinkronkan di bawah email
+    # Tombol Sinkronkan
     if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
         st.cache_data.clear()
         st.session_state.vector_store = None
         st.rerun()
+
+    # --- BAGIAN HASIL JAWABAN (Sekarang berada di bawah tombol Sinkronkan) ---
+    if st.session_state["last_answer"]:
+        st.markdown("---")
+        with st.chat_message("assistant"):
+            st.markdown(st.session_state["last_answer"])
+        st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
+        st.markdown("---")
 
     user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input")
     
