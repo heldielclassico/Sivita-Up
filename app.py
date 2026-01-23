@@ -26,17 +26,18 @@ st.markdown(f"""
     footer {{visibility: hidden;}}
     header {{visibility: hidden;}}
     
-    /* Ruang bawah agar konten tidak tertutup panel melayang */
+    /* Ruang bawah agar konten tidak tertutup panel melayang saat scroll mentok */
     .block-container {{
         padding-top: 5px;
-        padding-bottom: 220px; 
+        padding-bottom: 250px; 
     }}
 
-    /* FIX: Hapus elemen putih yang menutupi tombol & perkecil lebar kolom */
+    /* FIX: PERKECIL LEBAR KOLOM TOMBOL AGAR SESUAI MOBILE & DESKTOP */
     [data-testid="column"] {{
         width: fit-content !important;
         flex: unset !important;
         min-width: unset !important;
+        max-width: 150px !important; /* Batas maksimal agar tidak melebar */
     }}
     
     [data-testid="stHorizontalBlock"] {{
@@ -47,9 +48,12 @@ st.markdown(f"""
         gap: 10px !important;
     }}
 
-    /* Menghilangkan border/bayangan aneh pada text area di mobile */
-    .stTextArea textarea {{
-        margin-bottom: 0px !important;
+    /* Styling tombol agar tetap ramping dan rapi */
+    .stButton > button {{
+        width: fit-content !important;
+        padding-left: 15px !important;
+        padding-right: 15px !important;
+        white-space: nowrap !important;
     }}
 
     /* STYLE UNTUK MEMBUAT AREA INPUT TETAP DI BAWAH (STICKY/FIXED) */
@@ -61,7 +65,7 @@ st.markdown(f"""
         width: 95%;
         max-width: 730px; 
         background-color: #f9f9f9;
-        padding: 15px; /* Sedikit diperkecil */
+        padding: 20px;
         border: 1px solid #eeeeee;
         border-radius: 20px;
         z-index: 999;
@@ -91,8 +95,10 @@ def get_and_process_data() -> Tuple[List[Dict], str]:
         df_list = pd.read_csv(central_url)
         tab_names = df_list['NamaTab'].tolist()
         base_url = central_url.split('/export')[0]
+        
         all_chunks = []
         full_instructions = []
+        
         for tab in tab_names:
             tab_url = f"{base_url}/gviz/tq?tqx=out:csv&sheet={tab.replace(' ', '%20')}"
             try:
@@ -101,11 +107,13 @@ def get_and_process_data() -> Tuple[List[Dict], str]:
                     if 'Isi' in df.columns:
                         full_instructions = df['Isi'].dropna().astype(str).tolist()
                     continue
+                
                 for idx, row in df.iterrows():
                     row_content = f"Data {tab}: " + ", ".join([f"{col} adalah {val}" for col, val in row.items() if pd.notna(val)])
                     all_chunks.append({"text": row_content, "source": tab})
             except Exception:
                 continue
+        
         final_prompt = "\n".join(full_instructions) if full_instructions else "Anda adalah Sivita."
         return all_chunks, final_prompt
     except Exception as e:
@@ -134,7 +142,12 @@ def semantic_search(query: str, vector_store: Dict, top_k: int = 5):
 def save_to_log(email, question, answer="", duration=0):
     try:
         log_url = st.secrets["LOG_URL"]
-        payload = {"email": email, "question": question, "answer": answer, "duration": f"{duration} detik"}
+        payload = {
+            "email": email,
+            "question": question,
+            "answer": answer,
+            "duration": f"{duration} detik"
+        }
         requests.post(log_url, json=payload, timeout=5)
     except Exception:
         pass
@@ -159,21 +172,24 @@ if st.session_state.vector_store is None:
 
 # --- 5. UI UTAMA ---
 
+# Judul Utama dengan margin rapat
 st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: -15px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray; margin-top: 0px; margin-bottom: 15px;'>Sivita v1.3 | Fixed UI</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: gray; margin-top: 0px; margin-bottom: 15px;'>Sivita v1.3 | Fixed Floating Mode</p>", unsafe_allow_html=True)
 
+# Area Email & Sinkronisasi
 email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
 if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
     st.cache_data.clear()
     st.session_state.vector_store = None
     st.rerun()
 
-# --- TAMPILAN HASIL JAWABAN ---
+# --- TAMPILAN HASIL JAWABAN (Scrollable) ---
 if st.session_state["last_answer"]:
     st.markdown("---")
     with st.chat_message("assistant"):
         st.markdown(st.session_state["last_answer"])
     
+    # Tombol Hapus Jawaban diletakkan berdampingan dengan durasi
     col_info, col_clear = st.columns([2, 1])
     with col_info:
         st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
@@ -183,17 +199,17 @@ if st.session_state["last_answer"]:
 
 # --- BAGIAN INPUT MENGAMBANG (FIXED) ---
 with st.container():
+    # Elemen jangkar untuk deteksi CSS
     st.markdown('<div class="floating-anchor"></div>', unsafe_allow_html=True)
     
-    # Text area tanpa label untuk menghemat ruang
-    user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input", height=70, label_visibility="collapsed")
+    user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input", height=80)
     
-    # Gunakan layout kolom yang sangat rapat
-    c1, c2, c3 = st.columns([0.25, 0.25, 0.5])
+    # Rasio kolom kecil agar tombol tetap ringkas dan tidak memenuhi lebar container
+    col_send, col_del_q, col_spacer = st.columns([0.25, 0.2, 0.55])
     
-    with c1:
+    with col_send:
         btn_kirim = st.button("Kirim 🚀", use_container_width=True, type="primary")
-    with c2:
+    with col_del_q:
         st.button("Hapus Q 🗑️", on_click=clear_input_only, use_container_width=True)
 
     if btn_kirim:
@@ -209,16 +225,20 @@ with st.container():
                 try:
                     context_list = semantic_search(user_query, st.session_state.vector_store)
                     context_text = "\n".join(context_list)
+                    
                     llm = ChatOpenAI(
                         model="google/gemini-2.0-flash-lite-001",
                         openai_api_key=st.secrets["OPENROUTER_API_KEY"],
                         openai_api_base="https://openrouter.ai/api/v1",
                         temperature=0.1
                     )
+                    
                     full_prompt = f"{st.session_state.dynamic_sys_prompt}\n\nREFERENSI DATA:\n{context_text}\n\nPERTANYAAN: {user_query}"
+                    
                     response = llm.invoke(full_prompt)
                     st.session_state["last_answer"] = response.content
                     st.session_state["last_duration"] = round(time.time() - start_time, 2)
+                    
                     save_to_log(email, user_query, response.content, st.session_state["last_duration"])
                     st.rerun()
                 except Exception as e:
