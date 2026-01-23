@@ -29,7 +29,7 @@ st.markdown(f"""
     /* Ruang bawah agar konten tidak tertutup panel melayang saat scroll mentok */
     .block-container {{
         padding-top: 5px;
-        padding-bottom: 250px; 
+        padding-bottom: 0px; 
     }}
 
     /* FIX: PERKECIL LEBAR KOLOM TOMBOL AGAR SESUAI MOBILE & DESKTOP */
