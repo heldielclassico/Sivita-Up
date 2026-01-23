@@ -19,17 +19,16 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE CSS UNTUK TAMPILAN MENGAMBANG PERMANEN (FIXED BOTTOM) ---
+# --- KODE CSS UNTUK TAMPILAN STATIS & RAPI ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
     header {{visibility: hidden;}}
     
-    /* Memberikan ruang kosong di bawah agar konten jawaban tidak tertutup input floating */
-    .main .block-container {{
-        padding-bottom: 280px;
+    .block-container {{
         padding-top: 10px;
+        padding-bottom: 2rem;
     }}
     
     [data-testid="stHorizontalBlock"] {{
@@ -42,37 +41,24 @@ st.markdown(f"""
     .answer-box {{
         max-height: 400px;
         overflow-y: auto;
-        padding: 15px;
+        padding: 20px;
         background-color: #f8f9fa;
         border-radius: 12px;
         border: 1px solid #e0e0e0;
-        margin-bottom: 15px;
+        margin-bottom: 20px;
         line-height: 1.6;
         color: #31333F;
     }}
 
-    /* --- STYLE AREA INPUT MENGAMBANG (FIXED AT BOTTOM) --- */
+    /* --- STYLE AREA INPUT (STATIS - MENYATU DENGAN HALAMAN) --- */
     .custom-input-group {{
-        position: fixed;
-        bottom: 25px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 100%;
-        max-width: 730px; /* Menyesuaikan lebar layout centered Streamlit */
-        z-index: 9999;
-        padding: 18px;
+        padding: 20px;
         background-color: #ffffff;
         border: 1px solid #d1d5db;
-        border-radius: 20px;
-        box-shadow: 0 -10px 25px rgba(0,0,0,0.1);
-    }}
-    
-    /* Responsif untuk perangkat mobile */
-    @media (max-width: 768px) {{
-        .custom-input-group {{
-            width: 92%;
-            bottom: 15px;
-        }}
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        margin-top: 15px;
+        margin-bottom: 20px;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -182,31 +168,31 @@ with st.expander("⚙️ Konfigurasi Email & Data", expanded=False):
         st.session_state.vector_store = None
         st.rerun()
 
-# AREA TAMPILAN JAWABAN
+# --- AREA HASIL JAWABAN ---
 if st.session_state["last_answer"]:
     st.markdown("### 🤖 Jawaban")
-    # Menggunakan string tunggal untuk mencegah kebocoran tag HTML
+    # Penyatuan HTML agar tidak ada kebocoran tag </div> ke layar
     ans_html = f'<div class="answer-box">{st.session_state["last_answer"]}</div>'
     st.markdown(ans_html, unsafe_allow_html=True)
     st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
     st.button("Hapus Jawaban ✨", on_click=clear_answer_only)
 
-# --- WRAPPER INPUT FLOATING (STAY AT BOTTOM) ---
+# --- WRAPPER AREA INPUT (STATIS - MENYATU DENGAN HALAMAN) ---
 st.markdown('<div class="custom-input-group">', unsafe_allow_html=True)
 
 user_query = st.text_area(
-    "Tanya Sivita:", 
+    "Apa yang ingin Anda tanyakan?", 
     placeholder="Ketik pertanyaan Anda di sini...", 
     key="user_query_input", 
-    height=90, 
-    label_visibility="collapsed"
+    height=150
 )
 
-col_send, col_clear = st.columns([2, 1])
+# Kolom tombol aksi di dalam div
+col_send, col_clear = st.columns([1.5, 1])
 with col_send:
-    btn_kirim = st.button("Kirim 🚀", use_container_width=True, type="primary")
+    btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
 with col_clear:
-    st.button("Bersihkan 🗑️", on_click=clear_input_only, use_container_width=True)
+    st.button("Hapus Pertanyaan 🗑️", on_click=clear_input_only, use_container_width=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -239,4 +225,4 @@ if btn_kirim:
                 st.error(f"Error: {e}")
 
 st.divider()
-st.caption("Sivita Virtual Assistant @2026")
+st.caption("Sivita Virtual Assistant Poltesa @2026")
