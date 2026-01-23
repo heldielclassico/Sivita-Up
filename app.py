@@ -19,7 +19,7 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE CSS UNTUK TAMPILAN STATIS & RAPI ---
+# --- KODE CSS UNTUK TAMPILAN JAWABAN & UI ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
@@ -37,7 +37,7 @@ st.markdown(f"""
     
     .stAppDeployButton {{display: none;}}
 
-    /* --- STYLE AREA JAWABAN SCROLLABLE --- */
+    /* AREA JAWABAN SCROLLABLE */
     .answer-box {{
         max-height: 400px;
         overflow-y: auto;
@@ -48,17 +48,6 @@ st.markdown(f"""
         margin-bottom: 20px;
         line-height: 1.6;
         color: #31333F;
-    }}
-
-    /* --- STYLE AREA INPUT (STATIS - MENYATU DENGAN HALAMAN) --- */
-    .custom-input-group {{
-        padding: 20px;
-        background-color: #ffffff;
-        border: 1px solid #d1d5db;
-        border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        margin-top: 15px;
-        margin-bottom: 20px;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -130,10 +119,7 @@ def save_to_log(email, question, answer="", duration=0):
     try:
         log_url = st.secrets["LOG_URL"]
         payload = {
-            "email": email,
-            "question": question,
-            "answer": answer,
-            "duration": f"{duration} detik"
+            "email": email, "question": question, "answer": answer, "duration": f"{duration} detik"
         }
         requests.post(log_url, json=payload, timeout=5)
     except Exception as e:
@@ -171,15 +157,12 @@ with st.expander("⚙️ Konfigurasi Email & Data", expanded=False):
 # --- AREA HASIL JAWABAN ---
 if st.session_state["last_answer"]:
     st.markdown("### 🤖 Jawaban")
-    # Penyatuan HTML agar tidak ada kebocoran tag </div> ke layar
     ans_html = f'<div class="answer-box">{st.session_state["last_answer"]}</div>'
     st.markdown(ans_html, unsafe_allow_html=True)
     st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
     st.button("Hapus Jawaban ✨", on_click=clear_answer_only)
 
-# --- WRAPPER AREA INPUT (STATIS - MENYATU DENGAN HALAMAN) ---
-st.markdown('<div class="custom-input-group">', unsafe_allow_html=True)
-
+# --- AREA INPUT (TANPA DIV) ---
 user_query = st.text_area(
     "Apa yang ingin Anda tanyakan?", 
     placeholder="Ketik pertanyaan Anda di sini...", 
@@ -187,14 +170,12 @@ user_query = st.text_area(
     height=150
 )
 
-# Kolom tombol aksi di dalam div
+# Kolom tombol aksi
 col_send, col_clear = st.columns([1.5, 1])
 with col_send:
     btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
 with col_clear:
     st.button("Hapus Pertanyaan 🗑️", on_click=clear_input_only, use_container_width=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
 
 # --- LOGIKA BACKEND ---
 if btn_kirim:
