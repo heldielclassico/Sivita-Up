@@ -28,7 +28,7 @@ st.markdown(f"""
     
     /* Ruang bawah agar konten tidak tertutup panel melayang */
     .block-container {{
-        padding-top: 50px;
+        padding-top: 5px;
         padding-bottom: 220px; 
     }}
 
@@ -61,7 +61,7 @@ st.markdown(f"""
         width: 95%;
         max-width: 730px; 
         background-color: #f9f9f9;
-        padding: 15px;
+        padding: 15px; /* Sedikit diperkecil */
         border: 1px solid #eeeeee;
         border-radius: 20px;
         z-index: 999;
@@ -185,10 +185,10 @@ if st.session_state["last_answer"]:
 with st.container():
     st.markdown('<div class="floating-anchor"></div>', unsafe_allow_html=True)
     
-    # Text area dengan label yang disembunyikan agar elemen putih hilang
-    user_query = st.text_area("Label", placeholder="Tanyakan info kampus...", key="user_query_input", height=70, label_visibility="collapsed")
+    # Text area tanpa label untuk menghemat ruang
+    user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input", height=70, label_visibility="collapsed")
     
-    # Layout kolom yang sangat rapat untuk tombol
+    # Gunakan layout kolom yang sangat rapat
     c1, c2, c3 = st.columns([0.25, 0.25, 0.5])
     
     with c1:
