@@ -255,5 +255,5 @@ with st.container(border=True):
                 placeholder_animasi.empty()
                 st.error(f"Error: {e}")
 
-st.divider()
+
 st.caption("Sivita - Virtual Assistant Poltesa @2026")
