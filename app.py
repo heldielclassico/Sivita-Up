@@ -19,7 +19,7 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE CSS UNTUK OVERLAY TOMBOL SEJAJAR DALAM 1 BARIS ---
+# --- KODE CSS UNTUK OVERLAY TOMBOL KE DALAM TEXT AREA ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
@@ -27,12 +27,12 @@ st.markdown(f"""
     header {{visibility: hidden;}}
     
     /* Ruang bawah agar konten tidak tertutup panel melayang */
-    .block-container {{
+    .block_container {{
         padding-top: 5px;
         padding-bottom: 220px; 
     }}
 
-    /* Container utama panel bawah */
+    /* Container utama panel bawah (Floating Panel) */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-anchor) {{
         position: fixed;
         bottom: 15px;
@@ -48,43 +48,39 @@ st.markdown(f"""
         box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     }}
 
-    /* Menghilangkan border default text area */
+    /* Menghilangkan border default text area agar menyatu dengan panel */
     .stTextArea textarea {{
         border: none !important;
         background-color: transparent !important;
-        padding-right: 115px !important; /* Ruang untuk 2 tombol di kanan */
+        padding-right: 110px !important; /* Ruang agar teks tidak tertimpa tombol */
         resize: none !important;
         font-size: 16px !important;
     }}
 
-    /* MEMAKSA KOLOM TOMBOL BERSEBELAHAN (1 BARIS) */
+    /* Posisi Kolom Tombol agar melayang di atas Text Area */
     div[data-testid="column"]:has(button) {{
         position: absolute !important;
         right: 15px !important;
         bottom: 18px !important;
         z-index: 1000 !important;
         width: auto !important;
-        flex: 0 1 auto !important;
+        flex: unset !important;
     }}
-    
+
     [data-testid="stHorizontalBlock"] {{
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        align-items: center !important;
         gap: 8px !important;
     }}
 
-    /* Styling tombol bulat */
+    /* Styling tombol agar lebih bulat, kecil, dan serasi */
     .stButton > button {{
         border-radius: 50px !important;
-        padding: 0px 10px !important;
+        padding: 0px 12px !important;
         height: 38px !important;
         min-width: 45px !important;
         border: none !important;
     }}
 
-    /* Tombol Kirim Merah */
+    /* Tombol primer (Kirim) */
     button[kind="primary"] {{
         background-color: #ff4b4b !important;
         color: white !important;
@@ -126,11 +122,12 @@ def get_and_process_data() -> Tuple[List[Dict], str]:
                 for idx, row in df.iterrows():
                     row_content = f"Data {tab}: " + ", ".join([f"{col} adalah {val}" for col, val in row.items() if pd.notna(val)])
                     all_chunks.append({"text": row_content, "source": tab})
-            except Exception: continue
+            except Exception:
+                continue
         final_prompt = "\n".join(full_instructions) if full_instructions else "Anda adalah Sivita."
         return all_chunks, final_prompt
     except Exception as e:
-        st.error(f"Gagal Database: {e}")
+        st.error(f"Gagal memuat Database: {e}")
         return [], ""
 
 def create_vector_store(chunks_data: List[Dict]):
@@ -138,24 +135,29 @@ def create_vector_store(chunks_data: List[Dict]):
         model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
         texts = [c["text"] for c in chunks_data]
         embeddings = model.encode(texts, normalize_embeddings=True)
-        index = faiss.IndexFlatIP(embeddings.shape[1])
+        dimension = embeddings.shape[1]
+        index = faiss.IndexFlatIP(dimension)
         index.add(embeddings.astype('float32'))
         return {"index": index, "chunks": chunks_data, "model": model}
-    except Exception: return None
+    except Exception as e:
+        st.error(f"Gagal membangun Vector DB: {e}")
+        return None
 
 def semantic_search(query: str, vector_store: Dict, top_k: int = 5):
     query_vec = vector_store["model"].encode([query], normalize_embeddings=True)
     distances, indices = vector_store["index"].search(query_vec.astype('float32'), top_k)
-    return [vector_store["chunks"][idx]["text"] for idx in indices[0] if idx < len(vector_store["chunks"])]
+    results = [vector_store["chunks"][idx]["text"] for idx in indices[0] if idx < len(vector_store["chunks"])]
+    return results
 
 def save_to_log(email, question, answer="", duration=0):
     try:
         log_url = st.secrets["LOG_URL"]
         payload = {"email": email, "question": question, "answer": answer, "duration": f"{duration} detik"}
         requests.post(log_url, json=payload, timeout=5)
-    except Exception: pass
+    except Exception:
+        pass
 
-# --- 4. INISIALISASI ---
+# --- 4. INISIALISASI SESSION STATE ---
 
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
@@ -165,12 +167,15 @@ if "vector_store" not in st.session_state:
             st.session_state.vector_store = create_vector_store(raw_data)
             st.session_state.dynamic_sys_prompt = dyn_prompt
 
-if "last_answer" not in st.session_state: st.session_state["last_answer"] = ""
-if "last_duration" not in st.session_state: st.session_state["last_duration"] = 0
+if "last_answer" not in st.session_state:
+    st.session_state["last_answer"] = ""
+if "last_duration" not in st.session_state:
+    st.session_state["last_duration"] = 0
 
 # --- 5. UI UTAMA ---
 
-st.markdown("<h1 style='text-align: center; margin-top: -40px;'>🎓 Sivita Poltesa</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: -15px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: gray; margin-bottom: 25px;'>Sivita v1.3 | Integrated Input UI</p>", unsafe_allow_html=True)
 
 email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
 if st.button("🔄 Sinkronkan Ulang Data"):
@@ -178,20 +183,25 @@ if st.button("🔄 Sinkronkan Ulang Data"):
     st.session_state.vector_store = None
     st.rerun()
 
-# --- TAMPILAN RESPONS ---
+# --- TAMPILAN HASIL JAWABAN ---
 if st.session_state["last_answer"]:
     st.markdown("---")
     with st.chat_message("assistant"):
         st.markdown(st.session_state["last_answer"])
+    
     col_info, col_clear = st.columns([2, 1])
-    with col_info: st.caption(f"⏱️ {st.session_state['last_duration']} detik")
-    with col_clear: st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
+    with col_info:
+        st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
+    with col_clear:
+        st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
     st.markdown("---")
 
-# --- PANEL INPUT DENGAN TOMBOL BERSEBELAHAN ---
+# --- BAGIAN INPUT MENGAMBANG DENGAN TOMBOL DI DALAM ---
 with st.container():
+    # Elemen jangkar untuk deteksi CSS
     st.markdown('<div class="floating-anchor"></div>', unsafe_allow_html=True)
     
+    # Area Teks Utama
     user_query = st.text_area(
         "Label", 
         placeholder="Tanyakan sesuatu pada Sivita...", 
@@ -200,32 +210,40 @@ with st.container():
         label_visibility="collapsed"
     )
     
-    # Kolom untuk tombol (Kiri: Hapus, Kanan: Kirim)
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        st.button("🗑️", on_click=clear_input_only, help="Hapus Teks")
-    with c2:
-        btn_kirim = st.button("🚀", type="primary", help="Kirim")
+    # Kolom tombol yang diposisikan absolut (di atas text area) via CSS
+    c_del, c_send = st.columns([1, 1])
+    
+    with c_del:
+        st.button("🗑️", on_click=clear_input_only, help="Hapus Pertanyaan")
+    with c_send:
+        btn_kirim = st.button("🚀", type="primary", help="Kirim Pertanyaan")
 
     if btn_kirim:
         if not is_valid_email(email):
             st.error("Gunakan email @gmail.com")
-        elif user_query:
-            with st.spinner("Berpikir..."):
+        elif not user_query:
+            st.warning("Tuliskan pertanyaan.")
+        elif st.session_state.vector_store is None:
+            st.error("Data belum siap.")
+        else:
+            with st.spinner("Mencari jawaban..."):
                 start_time = time.time()
                 try:
                     context_list = semantic_search(user_query, st.session_state.vector_store)
+                    context_text = "\n".join(context_list)
                     llm = ChatOpenAI(
                         model="google/gemini-2.0-flash-lite-001",
                         openai_api_key=st.secrets["OPENROUTER_API_KEY"],
-                        openai_api_base="https://openrouter.ai/api/v1"
+                        openai_api_base="https://openrouter.ai/api/v1",
+                        temperature=0.1
                     )
-                    full_p = f"{st.session_state.dynamic_sys_prompt}\n\nDATA:\n{chr(10).join(context_list)}\n\nQ: {user_query}"
-                    response = llm.invoke(full_p)
+                    full_prompt = f"{st.session_state.dynamic_sys_prompt}\n\nREFERENSI DATA:\n{context_text}\n\nPERTANYAAN: {user_query}"
+                    response = llm.invoke(full_prompt)
                     st.session_state["last_answer"] = response.content
                     st.session_state["last_duration"] = round(time.time() - start_time, 2)
                     save_to_log(email, user_query, response.content, st.session_state["last_duration"])
                     st.rerun()
-                except Exception as e: st.error(f"Error: {e}")
+                except Exception as e:
+                    st.error(f"Error: {e}")
 
-st.caption("Sivita Poltesa @2026")
+st.caption("Sivita - Virtual Assistant Poltesa @2026")
