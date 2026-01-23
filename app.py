@@ -19,39 +19,24 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE CSS UNTUK TAMPILAN STANDAR (FLOW NORMAL) ---
+# --- KODE CSS MINIMALIS (HANYA UNTUK MEMBERSIHKAN UI) ---
 st.markdown(f"""
     <style>
-    /* Sembunyikan elemen dekoratif bawaan Streamlit */
+    /* Hilangkan elemen bawaan Streamlit */
     header[data-testid="stHeader"] {{ display: none !important; }}
     footer {{ visibility: hidden !important; }}
     #MainMenu {{ visibility: hidden !important; }}
     .stAppDeployButton {{ display: none !important; }}
 
-    /* Atur margin konten agar rapi */
+    /* Atur margin agar rapi di tengah */
     .block-container {{
         max-width: 800px;
         padding-top: 2rem;
-        padding-bottom: 5rem;
     }}
-
-    /* Styling Answer Box */
-    .answer-box {{
-        padding: 25px;
-        background-color: #f8f9fa;
-        border-radius: 15px;
-        border: 1px solid #e0e0e0;
-        line-height: 1.7;
-        color: #1f2937;
-        margin-bottom: 20px;
-    }}
-
-    /* Area Input Wrapper untuk pemisah visual */
-    .input-section {{
-        padding: 20px;
-        background-color: #ffffff;
-        border-top: 1px solid #eee;
-        margin-top: 30px;
+    
+    /* Area teks jawaban agar tetap terlihat berbeda */
+    .stAlert {{
+        border-radius: 12px;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -118,9 +103,11 @@ if st.session_state.vector_store is None:
 
 # --- 5. RENDER UI ---
 
-# BAGIAN 1: ATAS (STATIS)
-st.markdown("<h1 style='text-align: center;'>🎓 Sivita Poltesa</h1>", unsafe_allow_html=True)
-with st.expander("⚙️ Konfigurasi Akun & Data", expanded=False):
+# Bagian Judul
+st.title("🎓 Sivita Poltesa")
+
+# Bagian Konfigurasi
+with st.expander("⚙️ Konfigurasi", expanded=False):
     email = st.text_input("Email Gmail:", placeholder="nama@gmail.com")
     if st.button("🔄 Perbarui Data", use_container_width=True):
         st.cache_data.clear()
@@ -129,41 +116,42 @@ with st.expander("⚙️ Konfigurasi Akun & Data", expanded=False):
 
 st.divider()
 
-# BAGIAN 2: JAWABAN (TENGAH)
+# Bagian Jawaban
 if st.session_state["last_answer"]:
-    st.markdown("### 🤖 Respon Sivita")
-    st.markdown(f'<div class="answer-box">{st.session_state["last_answer"]}</div>', unsafe_allow_html=True)
-    st.caption(f"⏱️ Diproses dalam {st.session_state['last_duration']} detik")
+    st.subheader("🤖 Jawaban Sivita")
+    st.info(st.session_state["last_answer"])
+    st.caption(f"⏱️ Waktu proses: {st.session_state['last_duration']} detik")
     st.button("Hapus Jawaban ✨", on_click=clear_answer_only)
 else:
-    st.info("Halo! Silakan ajukan pertanyaan seputar kampus Poltesa pada kolom di bawah.")
+    st.write("Silakan ajukan pertanyaan di bawah.")
 
-# BAGIAN 3: INPUT (BAWAH)
-st.markdown('<div class="input-section">', unsafe_allow_html=True)
+st.divider()
+
+# Bagian Input (Tanpa bungkusan DIV)
 user_query = st.text_area(
-    "Apa yang ingin Anda ketahui?", 
-    placeholder="Contoh: Bagaimana cara daftar ulang?", 
+    "Apa yang ingin Anda tanyakan?", 
+    placeholder="Ketik pertanyaan di sini...", 
     key="user_query_input", 
-    height=120
+    height=150
 )
 
 col_send, col_clear = st.columns([1.5, 1])
 with col_send:
     btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
 with col_clear:
-    st.button("Bersihkan Teks 🗑️", on_click=clear_input_only, use_container_width=True)
+    st.button("Bersihkan 🗑️", on_click=clear_input_only, use_container_width=True)
 
-st.markdown("<br><p style='text-align: center; color: #888; font-size: 0.8rem;'>Sivita Virtual Assistant Poltesa @2026</p>", unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+st.markdown("---")
+st.caption("Sivita Virtual Assistant Poltesa @2026")
 
 # --- 6. LOGIKA BACKEND ---
 if btn_kirim:
     if not is_valid_email(email):
-        st.error("Masukkan email @gmail.com yang valid untuk melanjutkan.")
+        st.error("Gunakan email @gmail.com")
     elif not user_query:
-        st.warning("Silakan ketik pertanyaan terlebih dahulu.")
+        st.warning("Tulis pertanyaan Anda.")
     else:
-        with st.spinner("Sivita sedang mencari jawaban..."):
+        with st.spinner("Sivita sedang mencari data..."):
             start_time = time.time()
             try:
                 context = "\n".join(semantic_search(user_query, st.session_state.vector_store))
@@ -173,10 +161,10 @@ if btn_kirim:
                     openai_api_base="https://openrouter.ai/api/v1",
                     temperature=0.1
                 )
-                full_prompt = f"{st.session_state.dynamic_sys_prompt}\n\nREFERENSI:\n{context}\n\nPERTANYAAN: {user_query}"
+                full_prompt = f"{st.session_state.dynamic_sys_prompt}\n\nDATA:\n{context}\n\nPERTANYAAN: {user_query}"
                 res = llm.invoke(full_prompt)
                 st.session_state["last_answer"] = res.content
                 st.session_state["last_duration"] = round(time.time() - start_time, 2)
                 st.rerun()
             except Exception as e:
-                st.error(f"Terjadi kesalahan teknis: {e}")
+                st.error(f"Kesalahan: {e}")
