@@ -93,7 +93,6 @@ def semantic_search(query: str, vector_store: Dict, top_k: int = 5):
 def save_to_log(email, question, answer="", duration=0):
     try:
         log_url = st.secrets["LOG_URL"]
-        # Menggunakan 'question' sesuai preferensi Anda sebelumnya
         payload = {
             "email": email,
             "question": question,
@@ -104,7 +103,7 @@ def save_to_log(email, question, answer="", duration=0):
     except Exception as e:
         print(f"Log Error: {e}")
 
-# --- 5. INISIALISASI & SIDEBAR ---
+# --- 5. INISIALISASI ---
 
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
@@ -115,19 +114,13 @@ if "last_answer" not in st.session_state:
 if "last_duration" not in st.session_state:
     st.session_state["last_duration"] = 0
 
-with st.sidebar:
-    st.title("⚙️ Panel Sivita")
-    if st.button("🔄 Sinkronkan Ulang Data & Prompt"):
-        st.cache_data.clear()
-        st.session_state.vector_store = None
-        st.rerun()
-    
-    if st.session_state.vector_store is None:
-        with st.spinner("Mensinkronkan Data & Instruksi..."):
-            raw_data, dyn_prompt = get_and_process_data()
-            if raw_data:
-                st.session_state.vector_store = create_vector_store(raw_data)
-                st.session_state.dynamic_sys_prompt = dyn_prompt
+# Sinkronisasi awal jika data kosong
+if st.session_state.vector_store is None:
+    with st.spinner("Mensinkronkan Data & Instruksi..."):
+        raw_data, dyn_prompt = get_and_process_data()
+        if raw_data:
+            st.session_state.vector_store = create_vector_store(raw_data)
+            st.session_state.dynamic_sys_prompt = dyn_prompt
 
 # --- 6. UI UTAMA ---
 
@@ -138,9 +131,15 @@ with st.container(border=True):
     email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
     user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input")
     
+    # Tombol Sinkronkan di atas tombol Kirim
+    if st.button("🔄 Sinkronkan Ulang Data & Prompt", use_container_width=True):
+        st.cache_data.clear()
+        st.session_state.vector_store = None
+        st.rerun()
+
     col1, col2 = st.columns(2)
     with col1:
-        btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True)
+        btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
     with col2:
         st.button("Hapus Pertanyaan 🗑️", on_click=clear_input_only, use_container_width=True)
 
@@ -149,6 +148,8 @@ with st.container(border=True):
             st.error("Gunakan email @gmail.com")
         elif not user_query:
             st.warning("Tuliskan pertanyaan.")
+        elif st.session_state.vector_store is None:
+            st.error("Data belum siap, silakan klik tombol Sinkronkan Ulang.")
         else:
             with st.spinner("Mencari jawaban..."):
                 start_time = time.time()
@@ -170,6 +171,7 @@ with st.container(border=True):
                     st.session_state["last_duration"] = round(time.time() - start_time, 2)
                     
                     save_to_log(email, user_query, response.content, st.session_state["last_duration"])
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Error: {e}")
 
