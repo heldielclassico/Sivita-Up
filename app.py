@@ -19,7 +19,7 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE CSS UNTUK MENYEMBUNYIKAN MENU & MEMBUAT INPUT MENGAMBANG ---
+# --- KODE CSS UNTUK OVERLAY TOMBOL KE DALAM TEXT AREA ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
@@ -27,45 +27,63 @@ st.markdown(f"""
     header {{visibility: hidden;}}
     
     /* Ruang bawah agar konten tidak tertutup panel melayang */
-    .block-container {{
+    .block_container {{
         padding-top: 5px;
         padding-bottom: 220px; 
     }}
 
-    /* FIX: Hapus elemen putih yang menutupi tombol & perkecil lebar kolom */
-    [data-testid="column"] {{
-        width: fit-content !important;
-        flex: unset !important;
-        min-width: unset !important;
-    }}
-    
-    [data-testid="stHorizontalBlock"] {{
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        justify-content: flex-start !important;
-        gap: 10px !important;
-    }}
-
-    /* Menghilangkan border/bayangan aneh pada text area di mobile */
-    .stTextArea textarea {{
-        margin-bottom: 0px !important;
-    }}
-
-    /* STYLE UNTUK MEMBUAT AREA INPUT TETAP DI BAWAH (STICKY/FIXED) */
+    /* Container utama panel bawah (Floating Panel) */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-anchor) {{
         position: fixed;
-        bottom: 10px;
+        bottom: 15px;
         left: 50%;
         transform: translateX(-50%);
         width: 95%;
         max-width: 730px; 
-        background-color: #f9f9f9;
-        padding: 15px;
-        border: 1px solid #eeeeee;
-        border-radius: 20px;
+        background-color: #ffffff;
+        padding: 10px 15px;
+        border: 1px solid #e0e0e0;
+        border-radius: 25px;
         z-index: 999;
-        box-shadow: 0 -5px 25px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }}
+
+    /* Menghilangkan border default text area agar menyatu dengan panel */
+    .stTextArea textarea {{
+        border: none !important;
+        background-color: transparent !important;
+        padding-right: 110px !important; /* Ruang agar teks tidak tertimpa tombol */
+        resize: none !important;
+        font-size: 16px !important;
+    }}
+
+    /* Posisi Kolom Tombol agar melayang di atas Text Area */
+    div[data-testid="column"]:has(button) {{
+        position: absolute !important;
+        right: 15px !important;
+        bottom: 18px !important;
+        z-index: 1000 !important;
+        width: auto !important;
+        flex: unset !important;
+    }}
+
+    [data-testid="stHorizontalBlock"] {{
+        gap: 8px !important;
+    }}
+
+    /* Styling tombol agar lebih bulat, kecil, dan serasi */
+    .stButton > button {{
+        border-radius: 50px !important;
+        padding: 0px 12px !important;
+        height: 38px !important;
+        min-width: 45px !important;
+        border: none !important;
+    }}
+
+    /* Tombol primer (Kirim) */
+    button[kind="primary"] {{
+        background-color: #ff4b4b !important;
+        color: white !important;
     }}
 
     .stAppDeployButton {{display: none;}}
@@ -143,27 +161,24 @@ def save_to_log(email, question, answer="", duration=0):
 
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
-if "dynamic_sys_prompt" not in st.session_state:
-    st.session_state.dynamic_sys_prompt = ""
-if "last_answer" not in st.session_state:
-    st.session_state["last_answer"] = ""
-if "last_duration" not in st.session_state:
-    st.session_state["last_duration"] = 0
-
-if st.session_state.vector_store is None:
-    with st.spinner("Mensinkronkan Data..."):
+    with st.spinner("Sinkronisasi Data..."):
         raw_data, dyn_prompt = get_and_process_data()
         if raw_data:
             st.session_state.vector_store = create_vector_store(raw_data)
             st.session_state.dynamic_sys_prompt = dyn_prompt
 
+if "last_answer" not in st.session_state:
+    st.session_state["last_answer"] = ""
+if "last_duration" not in st.session_state:
+    st.session_state["last_duration"] = 0
+
 # --- 5. UI UTAMA ---
 
 st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: -15px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray; margin-top: 0px; margin-bottom: 15px;'>Sivita v1.3 | Fixed UI</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: gray; margin-bottom: 25px;'>Sivita v1.3 | Integrated Input UI</p>", unsafe_allow_html=True)
 
 email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
-if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
+if st.button("🔄 Sinkronkan Ulang Data"):
     st.cache_data.clear()
     st.session_state.vector_store = None
     st.rerun()
@@ -181,20 +196,27 @@ if st.session_state["last_answer"]:
         st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
     st.markdown("---")
 
-# --- BAGIAN INPUT MENGAMBANG (FIXED) ---
+# --- BAGIAN INPUT MENGAMBANG DENGAN TOMBOL DI DALAM ---
 with st.container():
+    # Elemen jangkar untuk deteksi CSS
     st.markdown('<div class="floating-anchor"></div>', unsafe_allow_html=True)
     
-    # Text area dengan label yang disembunyikan agar elemen putih hilang
-    user_query = st.text_area("Label", placeholder="Tanyakan info kampus...", key="user_query_input", height=70, label_visibility="collapsed")
+    # Area Teks Utama
+    user_query = st.text_area(
+        "Label", 
+        placeholder="Tanyakan sesuatu pada Sivita...", 
+        key="user_query_input", 
+        height=90, 
+        label_visibility="collapsed"
+    )
     
-    # Layout kolom yang sangat rapat untuk tombol
-    c1, c2, c3 = st.columns([0.25, 0.25, 0.5])
+    # Kolom tombol yang diposisikan absolut (di atas text area) via CSS
+    c_del, c_send = st.columns([1, 1])
     
-    with c1:
-        btn_kirim = st.button("Kirim 🚀", use_container_width=True, type="primary")
-    with c2:
-        st.button("Hapus Q 🗑️", on_click=clear_input_only, use_container_width=True)
+    with c_del:
+        st.button("🗑️", on_click=clear_input_only, help="Hapus Pertanyaan")
+    with c_send:
+        btn_kirim = st.button("🚀", type="primary", help="Kirim Pertanyaan")
 
     if btn_kirim:
         if not is_valid_email(email):
