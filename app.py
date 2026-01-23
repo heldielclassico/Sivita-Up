@@ -19,7 +19,7 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE CSS MINIMALIS (HANYA UNTUK MEMBERSIHKAN UI) ---
+# --- KODE CSS MINIMALIS ---
 st.markdown(f"""
     <style>
     /* Hilangkan elemen bawaan Streamlit */
@@ -122,12 +122,10 @@ if st.session_state["last_answer"]:
     st.info(st.session_state["last_answer"])
     st.caption(f"⏱️ Waktu proses: {st.session_state['last_duration']} detik")
     st.button("Hapus Jawaban ✨", on_click=clear_answer_only)
-else:
-    st.write("Silakan ajukan pertanyaan di bawah.")
 
 st.divider()
 
-# Bagian Input (Tanpa bungkusan DIV)
+# Bagian Input
 user_query = st.text_area(
     "Apa yang ingin Anda tanyakan?", 
     placeholder="Ketik pertanyaan di sini...", 
