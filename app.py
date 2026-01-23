@@ -59,7 +59,7 @@ st.markdown(f"""
     /* STYLE UNTUK MEMBUAT AREA INPUT TETAP DI BAWAH (STICKY/FIXED) */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-anchor) {{
         position: fixed;
-        bottom: 4px;
+        bottom: 40px;
         left: 50%;
         transform: translateX(-50%);
         width: 95%;
