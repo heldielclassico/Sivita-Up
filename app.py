@@ -32,7 +32,7 @@ st.markdown(f"""
         padding-bottom: 0rem;
     }}
     
-    /* PENGATUR JARAK TOMBOL (Ganti angka 5px di bawah untuk mengatur jarak antar tombol) */
+    /* PENGATUR JARAK TOMBOL */
     [data-testid="stHorizontalBlock"] {{
         gap: 5px !important;
     }}
@@ -140,14 +140,22 @@ if st.session_state.vector_store is None:
 
 # --- 6. UI UTAMA ---
 
-# Judul dengan margin khusus (naik ke atas)
+# Judul Utama
 st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: 0px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: gray; margin-bottom: 15px;'>Sivita v1.3 | Modular Prompt System</p>", unsafe_allow_html=True)
 
+# --- BAGIAN HASIL JAWABAN (Diletakkan di atas kotak input) ---
+if st.session_state["last_answer"]:
+    with st.chat_message("assistant"):
+        st.markdown(st.session_state["last_answer"])
+    st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
+    st.markdown("---")
+
+# --- BAGIAN INPUT ---
 with st.container(border=True):
     email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
     
-    # Tombol Sinkronkan diletakkan di bawah input email
+    # Tombol Sinkronkan di bawah email
     if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
         st.cache_data.clear()
         st.session_state.vector_store = None
@@ -155,7 +163,7 @@ with st.container(border=True):
 
     user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input")
     
-    # 3 Kolom untuk tombol aksi (Kirim, Hapus Pertanyaan, Hapus Jawaban)
+    # Kolom tombol aksi
     col_send, col_del_q, col_del_a = st.columns([1.5, 1, 1])
     
     with col_send:
@@ -196,12 +204,6 @@ with st.container(border=True):
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error: {e}")
-
-if st.session_state["last_answer"]:
-    st.markdown("---")
-    with st.chat_message("assistant"):
-        st.markdown(st.session_state["last_answer"])
-    st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
 
 st.divider()
 st.caption("Sivita - Virtual Assistant Poltesa @2026")
