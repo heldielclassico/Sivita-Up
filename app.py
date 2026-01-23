@@ -19,20 +19,19 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE CSS UNTUK OVERLAY TOMBOL BERDEKATAN DALAM TEXT AREA ---
+# --- KODE CSS UNTUK OVERLAY TOMBOL BERDEKATAN ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
     header {{visibility: hidden;}}
     
-    /* Ruang bawah agar konten tidak tertutup panel melayang */
     .block-container {{
         padding-top: 5px;
         padding-bottom: 220px; 
     }}
 
-    /* Container utama panel melayang di bawah */
+    /* Container utama panel melayang */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-anchor) {{
         position: fixed;
         bottom: 15px;
@@ -68,13 +67,13 @@ st.markdown(f"""
         flex: 0 1 auto !important;
     }}
     
-    /* Gap sangat kecil agar tombol berdekatan */
+    /* Gap dibuat sangat kecil (4px) agar tombol berdekatan */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         align-items: center !important;
-        gap: 6px !important; 
+        gap: 4px !important; 
     }}
 
     /* Styling tombol agar ramping dan bulat */
@@ -86,7 +85,7 @@ st.markdown(f"""
         border: 1px solid #f0f0f0 !important;
     }}
 
-    /* Tombol Kirim Merah */
+    /* Warna khusus tombol Kirim */
     button[kind="primary"] {{
         background-color: #ff4b4b !important;
         color: white !important;
@@ -97,7 +96,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. FUNGSI LOGIKA & RAG ---
+# --- 3. FUNGSI LOGIKA ---
 
 def is_valid_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', email) is not None
@@ -160,7 +159,7 @@ def save_to_log(email, question, answer="", duration=0):
 
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
-    with st.spinner("Sinkronisasi Data..."):
+    with st.spinner("Sinkronisasi..."):
         raw_data, dyn_prompt = get_and_process_data()
         if raw_data:
             st.session_state.vector_store = create_vector_store(raw_data)
@@ -171,57 +170,49 @@ if "last_duration" not in st.session_state: st.session_state["last_duration"] = 
 
 # --- 5. UI UTAMA ---
 
-st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: -15px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray; margin-bottom: 25px;'>Sivita v1.3 | Integrated Layout</p>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; margin-top: -40px;'>🎓 Sivita Poltesa</h1>", unsafe_allow_html=True)
 
-# Tampilan Input Email & Sinkronisasi (UI Atas)
 email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
-if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
-    st.cache_data.clear()
-    st.session_state.vector_store = None
-    st.rerun()
 
-# Area Tampilan Jawaban (Tengah)
 if st.session_state["last_answer"]:
     st.markdown("---")
     with st.chat_message("assistant"):
         st.markdown(st.session_state["last_answer"])
     col_info, col_clear = st.columns([2, 1])
-    with col_info: st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
+    with col_info: st.caption(f"⏱️ {st.session_state['last_duration']} detik")
     with col_clear: st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
     st.markdown("---")
 
-# --- PANEL INPUT MENGAMBANG (BAWAH) ---
+# --- PANEL INPUT OVERLAY ---
 with st.container():
     st.markdown('<div class="floating-anchor"></div>', unsafe_allow_html=True)
     
     user_query = st.text_area(
         "Input", 
-        placeholder="Tanyakan sesuatu pada Sivita...", 
+        placeholder="Tanyakan sesuatu...", 
         key="user_query_input", 
         label_visibility="collapsed"
     )
     
-    # Tombol Berdekatan (🗑️ & 🚀) di pojok kanan bawah
+    # Kolom untuk tombol agar berdekatan di kanan
     c1, c2 = st.columns([1, 1])
     with c1:
-        st.button("🗑️", on_click=clear_input_only, help="Hapus Teks")
+        st.button("🗑️", on_click=clear_input_only)
     with c2:
-        btn_kirim = st.button("🚀", type="primary", help="Kirim Pertanyaan")
+        btn_kirim = st.button("🚀", type="primary")
 
     if btn_kirim:
         if not is_valid_email(email):
             st.error("Gunakan email @gmail.com")
         elif user_query:
-            with st.spinner("Berpikir..."):
+            with st.spinner("..."):
                 start_time = time.time()
                 try:
                     context_list = semantic_search(user_query, st.session_state.vector_store)
                     llm = ChatOpenAI(
                         model="google/gemini-2.0-flash-lite-001",
                         openai_api_key=st.secrets["OPENROUTER_API_KEY"],
-                        openai_api_base="https://openrouter.ai/api/v1",
-                        temperature=0.1
+                        openai_api_base="https://openrouter.ai/api/v1"
                     )
                     full_p = f"{st.session_state.dynamic_sys_prompt}\n\nDATA:\n{chr(10).join(context_list)}\n\nQ: {user_query}"
                     response = llm.invoke(full_p)
