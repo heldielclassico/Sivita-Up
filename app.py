@@ -26,13 +26,13 @@ st.markdown(f"""
     footer {{visibility: hidden;}}
     header {{visibility: hidden;}}
     
-    /* Ruang bawah agar konten tidak tertutup panel melayang */
+    /* Ruang bawah agar konten tidak tertutup panel melayang saat scroll mentok */
     .block-container {{
         padding-top: 5px;
         padding-bottom: 250px; 
     }}
 
-    /* Jarak antar tombol */
+    /* Jarak antar tombol aksi (Kirim, Hapus Q, Hapus A) */
     [data-testid="stHorizontalBlock"] {{
         gap: 5px !important;
     }}
@@ -44,7 +44,7 @@ st.markdown(f"""
         left: 50%;
         transform: translateX(-50%);
         width: 100%;
-        max-width: 730px; /* Sedikit lebih lebar dari container standar */
+        max-width: 730px; 
         background-color: #f9f9f9;
         padding: 20px;
         border-top: 2px solid #eeeeee;
@@ -52,12 +52,12 @@ st.markdown(f"""
         box-shadow: 0 -10px 20px rgba(0,0,0,0.05);
     }}
 
-    /* Menghilangkan tombol deploy */
+    /* Menghilangkan tombol deploy Streamlit */
     .stAppDeployButton {{display: none;}}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. FUNGSI LOGIKA & RAG ---
+# --- 3. FUNGSI LOGIKA & RAG (TETAP SAMA) ---
 
 def is_valid_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', email) is not None
@@ -130,10 +130,10 @@ def save_to_log(email, question, answer="", duration=0):
             "duration": f"{duration} detik"
         }
         requests.post(log_url, json=payload, timeout=5)
-    except Exception as e:
-        print(f"Log Error: {e}")
+    except Exception:
+        pass
 
-# --- 4. INISIALISASI ---
+# --- 4. INISIALISASI SESSION STATE ---
 
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
@@ -145,7 +145,7 @@ if "last_duration" not in st.session_state:
     st.session_state["last_duration"] = 0
 
 if st.session_state.vector_store is None:
-    with st.spinner("Mensinkronkan Data & Instruksi..."):
+    with st.spinner("Mensinkronkan Data..."):
         raw_data, dyn_prompt = get_and_process_data()
         if raw_data:
             st.session_state.vector_store = create_vector_store(raw_data)
@@ -153,18 +153,18 @@ if st.session_state.vector_store is None:
 
 # --- 5. UI UTAMA ---
 
-# Judul (Tetap di atas, ikut ter-scroll)
-st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: 0px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray; margin-bottom: 15px;'>Sivita v1.3 | Fixed Control Mode</p>", unsafe_allow_html=True)
+# Judul Utama dengan margin yang didekatkan (Sangat Rapat)
+st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: -15px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: gray; margin-top: 0px; margin-bottom: 15px;'>Sivita v1.3 | Fixed Floating Mode</p>", unsafe_allow_html=True)
 
-# Area Atas: Email & Sinkronisasi
+# Area Email & Sinkronisasi
 email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
 if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
     st.cache_data.clear()
     st.session_state.vector_store = None
     st.rerun()
 
-# --- BAGIAN HASIL JAWABAN (Berada di bawah sinkronisasi, bisa di-scroll) ---
+# --- TAMPILAN HASIL JAWABAN (Scrollable) ---
 if st.session_state["last_answer"]:
     st.markdown("---")
     with st.chat_message("assistant"):
@@ -172,9 +172,9 @@ if st.session_state["last_answer"]:
     st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
     st.markdown("---")
 
-# --- BAGIAN INPUT MENGAMBANG (Difiksasi ke bawah layar) ---
+# --- BAGIAN INPUT MENGAMBANG (FIXED DI BAWAH) ---
 with st.container():
-    # Anchor class agar CSS bisa mengenali container ini
+    # Elemen jangkar untuk deteksi CSS
     st.markdown('<div class="floating-anchor"></div>', unsafe_allow_html=True)
     
     user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input", height=80)
@@ -184,9 +184,9 @@ with st.container():
     with col_send:
         btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
     with col_del_q:
-        st.button("Hapus Pertanyaan 🗑️", on_click=clear_input_only, use_container_width=True)
+        st.button("Hapus Q 🗑️", on_click=clear_input_only, use_container_width=True)
     with col_del_a:
-        st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
+        st.button("Hapus A ✨", on_click=clear_answer_only, use_container_width=True)
 
     if btn_kirim:
         if not is_valid_email(email):
