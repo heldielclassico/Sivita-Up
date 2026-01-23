@@ -154,25 +154,26 @@ with st.container(border=True):
         st.session_state.vector_store = None
         st.rerun()
 
-    # --- BAGIAN HASIL JAWABAN (Sekarang berada di bawah tombol Sinkronkan) ---
+    # --- BAGIAN HASIL JAWABAN (Posisi Sekarang) ---
     if st.session_state["last_answer"]:
         st.markdown("---")
         with st.chat_message("assistant"):
             st.markdown(st.session_state["last_answer"])
         st.caption(f"⏱️ Selesai dalam {st.session_state['last_duration']} detik")
+        
+        # Tombol Hapus Jawaban dipindahkan ke sini agar lebih intuitif
+        st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
         st.markdown("---")
 
     user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Tanyakan info kampus...", key="user_query_input")
     
-    # Kolom tombol aksi
-    col_send, col_del_q, col_del_a = st.columns([1.5, 1, 1])
+    # Kolom tombol aksi (Disesuaikan menjadi 2 kolom karena tombol hapus jawaban sudah pindah)
+    col_send, col_del_q = st.columns([1.5, 1])
     
     with col_send:
         btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
     with col_del_q:
         st.button("Hapus Pertanyaan 🗑️", on_click=clear_input_only, use_container_width=True)
-    with col_del_a:
-        st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
 
     if btn_kirim:
         if not is_valid_email(email):
