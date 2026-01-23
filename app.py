@@ -19,7 +19,7 @@ load_dotenv()
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE CSS MODERN & PEMBERSIH ELEMEN PENGGANGGU ---
+# --- KODE CSS MODERN UI ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
@@ -28,36 +28,37 @@ st.markdown(f"""
     
     .block-container {{
         padding-top: 5px;
-        padding-bottom: 220px; 
+        padding-bottom: 180px; 
     }}
 
-    /* Container Utama Panel Melayang Modern */
+    /* Container Panel Melayang Modern */
     div[data-testid="stVerticalBlock"] > div:has(div.floating-anchor) {{
         position: fixed;
-        bottom: 15px;
+        bottom: 30px;
         left: 50%;
         transform: translateX(-50%);
-        width: 95%;
-        max-width: 730px; 
-        background-color: #ffffff;
+        width: 92%;
+        max-width: 700px; 
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
         padding: 12px;
-        border: 1px solid #e0e0e0;
+        border: 1px solid rgba(0, 0, 0, 0.05);
         border-radius: 24px;
         z-index: 999;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
     }}
 
-    /* --- STYLING TEXT AREA MODERN --- */
+    /* Styling Text Area Modern */
     .stTextArea textarea {{
         background-color: #f8f9fa !important;
-        border: 1px solid #eeeeee !important;
-        border-radius: 16px !important;
-        padding: 15px 115px 15px 15px !important; 
-        resize: none !important;
-        font-size: 16px !important;
-        min-height: 95px !important;
-        color: #31333F !important;
+        border: 1px solid #f0f0f0 !important;
+        border-radius: 18px !important;
+        padding: 12px 115px 12px 15px !important; 
+        color: #333 !important;
+        font-size: 15px !important;
+        line-height: 1.5 !important;
         transition: all 0.3s ease !important;
+        min-height: 90px !important;
     }}
 
     .stTextArea textarea:focus {{
@@ -66,61 +67,53 @@ st.markdown(f"""
         box-shadow: 0 0 0 3px rgba(255, 75, 75, 0.1) !important;
     }}
 
-    /* Menghilangkan elemen putih lonjong (instruksi/label) secara total */
+    /* Hapus paksa elemen sisa/instruksi putih yang mengganggu tombol */
     div[data-testid="stTextArea"] > div:nth-child(2),
     div[data-testid="stWidgetLabel"],
-    .stTextArea label,
-    .stTextArea div[aria-live="polite"] {{
+    .stTextArea label {{
         display: none !important;
-        height: 0px !important;
-        pointer-events: none !important;
     }}
 
-    /* Tombol sejajar dan berdekatan di pojok kanan bawah */
+    /* Container Tombol di Kanan Bawah Area Teks */
     div[data-testid="column"]:has(button) {{
         position: absolute !important;
-        right: 25px !important;
-        bottom: 25px !important;
-        z-index: 1001 !important;
+        right: 22px !important;
+        bottom: 22px !important;
+        z-index: 1000 !important;
         width: auto !important;
-        flex: 0 1 auto !important;
     }}
     
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
-        flex-direction: row !important;
         gap: 8px !important; 
     }}
 
-    /* Styling tombol modern */
+    /* Styling Tombol Bulat Minimalis */
     .stButton > button {{
         border-radius: 12px !important;
-        padding: 0px 10px !important;
-        height: 42px !important;
-        min-width: 48px !important;
-        border: 1px solid #f0f0f0 !important;
+        height: 40px !important;
+        min-width: 44px !important;
+        border: none !important;
         background-color: #ffffff !important;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
         transition: transform 0.2s ease !important;
     }}
 
     .stButton > button:hover {{
-        transform: translateY(-2px) !important;
-        border-color: #ff4b4b !important;
+        transform: translateY(-2px);
     }}
 
-    /* Tombol Kirim (Primary) */
+    /* Tombol Kirim Primary */
     button[kind="primary"] {{
         background: linear-gradient(135deg, #ff4b4b 0%, #ff7676 100%) !important;
         color: white !important;
-        border: none !important;
     }}
 
     .stAppDeployButton {{display: none;}}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. FUNGSI LOGIKA (TIDAK BERUBAH) ---
+# --- 3. FUNGSI LOGIKA (Tetap sama) ---
 
 def is_valid_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', email) is not None
@@ -133,7 +126,7 @@ def clear_answer_only():
     st.session_state["last_duration"] = 0
 
 @st.cache_data(show_spinner=False)
-def get_and_process_data() -> Tuple[List[Dict], str]:
+def get_and_process_data():
     try:
         central_url = st.secrets["SHEET_CENTRAL_URL"]
         df_list = pd.read_csv(central_url)
@@ -157,7 +150,7 @@ def get_and_process_data() -> Tuple[List[Dict], str]:
         return all_chunks, final_prompt
     except Exception: return [], ""
 
-def create_vector_store(chunks_data: List[Dict]):
+def create_vector_store(chunks_data):
     try:
         model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
         texts = [c["text"] for c in chunks_data]
@@ -167,7 +160,7 @@ def create_vector_store(chunks_data: List[Dict]):
         return {"index": index, "chunks": chunks_data, "model": model}
     except Exception: return None
 
-def semantic_search(query: str, vector_store: Dict, top_k: int = 5):
+def semantic_search(query, vector_store, top_k=5):
     query_vec = vector_store["model"].encode([query], normalize_embeddings=True)
     distances, indices = vector_store["index"].search(query_vec.astype('float32'), top_k)
     return [vector_store["chunks"][idx]["text"] for idx in indices[0] if idx < len(vector_store["chunks"])]
@@ -183,7 +176,7 @@ def save_to_log(email, question, answer="", duration=0):
 
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
-    with st.spinner("Sinkronisasi Data..."):
+    with st.spinner("Sinkronisasi Sivita..."):
         raw_data, dyn_prompt = get_and_process_data()
         if raw_data:
             st.session_state.vector_store = create_vector_store(raw_data)
@@ -192,10 +185,10 @@ if "vector_store" not in st.session_state:
 if "last_answer" not in st.session_state: st.session_state["last_answer"] = ""
 if "last_duration" not in st.session_state: st.session_state["last_duration"] = 0
 
-# --- 5. UI UTAMA (TIDAK BERUBAH) ---
+# --- 5. UI UTAMA ---
 
 st.markdown("<h1 style='text-align: center; margin-top: -40px; margin-bottom: -15px;'>🎓 Asisten Virtual Poltesa (Sivita)</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray; margin-top: 0px; margin-bottom: 15px;'>Sivita v1.3 | Fixed UI</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: gray; margin-top: 0px; margin-bottom: 25px;'>Sivita v1.3 | Modern Experience</p>", unsafe_allow_html=True)
 
 email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
 if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
@@ -203,7 +196,6 @@ if st.button("🔄 Sinkronkan Ulang Data", use_container_width=True):
     st.session_state.vector_store = None
     st.rerun()
 
-# Area Tampilan Jawaban
 if st.session_state["last_answer"]:
     st.markdown("---")
     with st.chat_message("assistant"):
@@ -213,29 +205,29 @@ if st.session_state["last_answer"]:
     with col_clear: st.button("Hapus Jawaban ✨", on_click=clear_answer_only, use_container_width=True)
     st.markdown("---")
 
-# --- PANEL INPUT MENGAMBANG DENGAN TEXT AREA MODERN ---
+# --- PANEL INPUT MODERN ---
 with st.container():
     st.markdown('<div class="floating-anchor"></div>', unsafe_allow_html=True)
     
     user_query = st.text_area(
-        "Label", 
-        placeholder="Tanyakan sesuatu pada Sivita...", 
+        "", 
+        placeholder="Tanyakan info kampus atau layanan Poltesa...", 
         key="user_query_input", 
         label_visibility="collapsed"
     )
     
-    # Tombol Berdekatan (🗑️ & 🚀)
+    # Tombol Berdekatan di kanan bawah
     c1, c2 = st.columns([1, 1])
     with c1:
-        st.button("🗑️", on_click=clear_input_only, help="Hapus teks")
+        st.button("🗑️", on_click=clear_input_only, help="Bersihkan pertanyaan")
     with c2:
-        btn_kirim = st.button("🚀", type="primary", help="Kirim pertanyaan")
+        btn_kirim = st.button("🚀", type="primary", help="Kirim pesan")
 
     if btn_kirim:
         if not is_valid_email(email):
-            st.error("Gunakan email @gmail.com")
+            st.error("Gunakan email @gmail.com yang valid")
         elif user_query:
-            with st.spinner("..."):
+            with st.spinner("Sivita sedang berpikir..."):
                 start_time = time.time()
                 try:
                     context_list = semantic_search(user_query, st.session_state.vector_store)
@@ -251,6 +243,6 @@ with st.container():
                     st.session_state["last_duration"] = round(time.time() - start_time, 2)
                     save_to_log(email, user_query, response.content, st.session_state["last_duration"])
                     st.rerun()
-                except Exception as e: st.error(f"Error: {e}")
+                except Exception as e: st.error(f"Maaf, terjadi kendala teknis.")
 
 st.caption("Sivita Poltesa @2026")
