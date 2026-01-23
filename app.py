@@ -25,10 +25,12 @@ def is_valid_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', email) is not None
 
 def clear_input_only():
+    """Hanya menghapus teks pertanyaan di kolom input."""
     st.session_state["user_query_input"] = ""
 
 @st.cache_data(show_spinner=False)
 def get_and_process_data() -> Tuple[List[Dict], str]:
+    """Mengambil data & Prompt dari Google Sheets."""
     try:
         central_url = st.secrets["SHEET_CENTRAL_URL"]
         df_list = pd.read_csv(central_url)
@@ -55,11 +57,13 @@ def get_and_process_data() -> Tuple[List[Dict], str]:
         
         final_prompt = "\n".join(full_instructions) if full_instructions else "Anda adalah Sivita."
         return all_chunks, final_prompt
+
     except Exception as e:
         st.error(f"Gagal memuat Database: {e}")
         return [], ""
 
 def create_vector_store(chunks_data: List[Dict]):
+    """Membangun Vector Database (FAISS)."""
     try:
         model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
         texts = [c["text"] for c in chunks_data]
@@ -73,16 +77,18 @@ def create_vector_store(chunks_data: List[Dict]):
         return None
 
 def semantic_search(query: str, vector_store: Dict, top_k: int = 5):
+    """Mencari referensi data paling relevan."""
     query_vec = vector_store["model"].encode([query], normalize_embeddings=True)
     distances, indices = vector_store["index"].search(query_vec.astype('float32'), top_k)
     results = [vector_store["chunks"][idx]["text"] for idx in indices[0] if idx < len(vector_store["chunks"])]
     return results
 
-# --- 4. FUNGSI: SIMPAN LOG (PERBAIKAN KOLOM B) ---
+# --- 4. FUNGSI: SIMPAN LOG (DISESUAIKAN) ---
 def save_to_log(email, question, answer="", duration=0):
     try:
         log_url = st.secrets["LOG_URL"]
-        # PERBAIKAN: Mengganti 'question' menjadi 'query' agar terbaca di Kolom B Sheets
+        # Kita ganti label 'question' menjadi 'query' agar terbaca di Kolom B
+        # Dan 'duration' menjadi 'time' agar terbaca di Kolom D
         payload = {
             "email": email,
             "query": question, 
@@ -158,7 +164,7 @@ with st.container(border=True):
                     st.session_state["last_answer"] = response.content
                     st.session_state["last_duration"] = round(time.time() - start_time, 2)
                     
-                    # Pemanggilan fungsi log
+                    # Memanggil fungsi log yang sudah disesuaikan labelnya
                     save_to_log(email, user_query, response.content, st.session_state["last_duration"])
                 except Exception as e:
                     st.error(f"Error: {e}")
