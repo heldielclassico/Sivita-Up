@@ -7,7 +7,7 @@ import time
 import numpy as np
 import json
 from typing import List, Dict, Tuple
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 from streamlit_lottie import st_lottie
 
 # Import LangChain & AI
@@ -16,7 +16,7 @@ from sentence_transformers import SentenceTransformer
 import faiss
 
 # 1. Load Environment Variables
-load_dotenv()
+#load_dotenv()
 
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
