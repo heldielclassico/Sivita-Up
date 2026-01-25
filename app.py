@@ -30,7 +30,7 @@ st.markdown(f"""
     
     /* Menaikkan seluruh konten ke atas */
     .block-container {{
-        padding-top: 12px;
+        padding-top: 18px;
         padding-bottom: 0rem;
     }}
     
