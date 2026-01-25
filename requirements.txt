@@ -2,7 +2,7 @@ streamlit
 pandas
 requests
 numpy
-python-dotenv
+#python-dotenv
 langchain-openai
 langchain-text-splitters
 faiss-cpu
