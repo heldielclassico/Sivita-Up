@@ -21,13 +21,24 @@ import faiss
 # 2. Konfigurasi Halaman
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# --- KODE UNTUK MENGHILANGKAN MENU, FOOTER, DAN ICON GITHUB ---
+# --- KODE UNTUK MENGHILANGKAN MENU, FOOTER, DAN ICON ---
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
     header {{visibility: hidden;}}
     
+    /* MENYEMBUNYIKAN ICON RUNNING / STATUS DI POJOK KANAN BAWAH */
+    div[data-testid="stStatusWidget"] {{
+        visibility: hidden;
+        display: none;
+    }}
+    
+    /* Menyembunyikan elemen dekorasi tambahan di footer */
+    .stDecoration {{
+        display: none;
+    }}
+
     /* Menaikkan seluruh konten ke atas */
     .block-container {{
         padding-top: 35px;
