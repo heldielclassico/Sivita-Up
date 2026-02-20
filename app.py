@@ -137,12 +137,16 @@ with st.container(border=True):
     with col_reset:
         if st.button("🧹 Hapus Chat", on_click=clear_history, use_container_width=True): pass
 
+    # --- PENEMPATAN BLOK STATUS (DI BAWAH TOMBOL HAPUS CHAT) ---
+    placeholder_status = st.empty()
     placeholder_animasi = st.empty()
 
+    # Tampilan Jawaban Terakhir
     if st.session_state.last_answer:
         st.markdown(f'<div class="answer-box"><strong>🤖 Sivita:</strong><br>{st.session_state.last_answer}</div>', unsafe_allow_html=True)
         st.caption(f"⏱️ Selesai dalam {st.session_state.last_duration} detik")
 
+    # Area Input Pertanyaan
     with st.container(border=True):
         user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Ketik di sini...", key="user_query_input", height=120)
         col_send, col_del_q = st.columns([1.5, 1])
@@ -158,60 +162,64 @@ with st.container(border=True):
         elif not user_query:
             st.warning("Silakan tulis pertanyaan Anda.")
         else:
-            # Wadah Animasi Lottie
-            with placeholder_animasi.container():
-                if lottie_anim: st_lottie(lottie_anim, height=150, key="thinking")
-            
-            # Wadah Status Kerja (Ditambahkan di sini)
-            with st.status("Sivita sedang bekerja...", expanded=True) as status:
-                start_time = time.time()
-                try:
-                    st.write("Mencari di database Poltesa...")
+            # Jalankan status di placeholder yang sudah disiapkan di bawah tombol hapus chat
+            with placeholder_status.container():
+                with st.status("Sivita sedang bekerja...", expanded=True) as status:
+                    # Tampilkan animasi robot juga jika ada
+                    with placeholder_animasi.container():
+                        if lottie_anim: st_lottie(lottie_anim, height=150, key="thinking")
                     
-                    if "jadwalku" in user_query.lower().strip():
-                        ans_content = (
-                            "Halo Bapak/Ibu Dosen! Untuk menginputkan jadwal perkuliahan, "
-                            "silakan akses formulir melalui tautan berikut:\n\n"
-                            "Akses di Link ini : 🔗 [Klik di Sini](https://docs.google.com/forms/d/e/1FAIpQLSfLEi9C_juiHcZkX7pzElepQmh9DCl9CGEsjvYZ0KMaU_HPhQ/viewform)"
-                        )
-                    else:
-                        # Jalankan semantic search
-                        context_list = semantic_search(user_query, st.session_state.vector_store, top_k=15)
-                        context_text = "\n".join(context_list)
+                    start_time = time.time()
+                    try:
+                        st.write("Mencari di database Poltesa...")
                         
-                        st.write("Menyusun jawaban...")
+                        # Bypass Logika untuk JadwalKu
+                        if "jadwalku" in user_query.lower().strip():
+                            ans_content = (
+                                "Halo Bapak/Ibu Dosen! Untuk menginputkan jadwal perkuliahan, "
+                                "silakan akses formulir melalui tautan berikut:\n\n"
+                                "Akses di Link ini : 🔗 [Klik di Sini](https://docs.google.com/forms/d/e/1FAIpQLSfLEi9C_juiHcZkX7pzElepQmh9DCl9CGEsjvYZ0KMaU_HPhQ/viewform)"
+                            )
+                        else:
+                            # Pencarian Data
+                            context_list = semantic_search(user_query, st.session_state.vector_store, top_k=15)
+                            context_text = "\n".join(context_list)
+                            
+                            st.write("Menyusun jawaban terbaik...")
+                            
+                            sys_rules = (
+                                f"{st.session_state.dynamic_sys_prompt}\n"
+                                "PENTING: Gunakan DATA REFERENSI. Jangan sebut Google Sheets. "
+                                "Gunakan sapaan 'Sobat Poltesa'."
+                            )
+                            prompt = f"{sys_rules}\n\nDATA:\n{context_text}\n\nUSER: {user_query}"
+                            
+                            # Jalankan LLM
+                            llm = ChatOpenAI(
+                                model="google/gemini-2.0-flash-lite-001",
+                                openai_api_key=st.secrets["OPENROUTER_API_KEY"],
+                                openai_api_base="https://openrouter.ai/api/v1",
+                                temperature=0.0
+                            )
+                            response = llm.invoke(prompt)
+                            ans_content = response.content
                         
-                        sys_rules = (
-                            f"{st.session_state.dynamic_sys_prompt}\n"
-                            "PENTING: Gunakan DATA REFERENSI. Jangan sebut Google Sheets. "
-                            "Gunakan sapaan 'Sobat Poltesa'."
-                        )
-                        prompt = f"{sys_rules}\n\nDATA:\n{context_text}\n\nUSER: {user_query}"
+                        # Update status ke selesai
+                        status.update(label="Jawaban ditemukan!", state="complete", expanded=False)
                         
-                        # Jalankan LLM
-                        llm = ChatOpenAI(
-                            model="google/gemini-2.0-flash-lite-001",
-                            openai_api_key=st.secrets["OPENROUTER_API_KEY"],
-                            openai_api_base="https://openrouter.ai/api/v1",
-                            temperature=0.0
-                        )
-                        response = llm.invoke(prompt)
-                        ans_content = response.content
-                    
-                    # Update Status Selesai
-                    status.update(label="Jawaban ditemukan!", state="complete", expanded=False)
-                    
-                    # Simpan Hasil ke State
-                    st.session_state.chat_history.append({"u": user_query, "b": ans_content})
-                    st.session_state.last_answer = ans_content
-                    st.session_state.last_duration = round(time.time() - start_time, 2)
-                    
-                    placeholder_animasi.empty()
-                    st.rerun()
-                    
-                except Exception as e:
-                    placeholder_animasi.empty()
-                    status.update(label="Terjadi kesalahan!", state="error")
-                    st.error(f"Terjadi kesalahan: {e}")
+                        # Simpan hasil dan refresh
+                        st.session_state.chat_history.append({"u": user_query, "b": ans_content})
+                        st.session_state.last_answer = ans_content
+                        st.session_state.last_duration = round(time.time() - start_time, 2)
+                        
+                        placeholder_animasi.empty()
+                        # Delay sangat singkat agar user sempat melihat status "complete"
+                        time.sleep(0.5) 
+                        st.rerun()
+                        
+                    except Exception as e:
+                        placeholder_animasi.empty()
+                        status.update(label="Terjadi kesalahan!", state="error")
+                        st.error(f"Terjadi kesalahan: {e}")
 
 st.caption("Sivita - Virtual Assistant Poltesa @2026")
