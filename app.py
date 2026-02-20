@@ -17,6 +17,7 @@ import faiss
 # --- 1. KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
+# CSS untuk UI
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
@@ -24,6 +25,7 @@ st.markdown(f"""
     header {{visibility: hidden;}}
     .block-container {{ padding-top: 35px; padding-bottom: 0rem; }}
     .stAppDeployButton {{display: none;}}
+    
     .answer-box {{
         max-height: 450px;
         overflow-y: auto;
@@ -39,7 +41,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. FUNGSI HELPER ---
+# --- 2. FUNGSI HELPER & ANIMASI ---
 @st.cache_data
 def load_lottieurl(url: str):
     try:
@@ -52,9 +54,13 @@ lottie_anim = load_lottieurl("https://lottie.host/85590396-981a-466d-961f-f46328
 def is_valid_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@gmail\.com$', email) is not None
 
+def clear_input_only():
+    st.session_state["user_query_input"] = ""
+
 def clear_history():
     st.session_state["chat_history"] = []
     st.session_state["last_answer"] = ""
+    st.session_state["last_duration"] = 0
 
 # --- 3. LOGIKA DATA & RAG ---
 @st.cache_data(show_spinner=False)
@@ -76,7 +82,7 @@ def get_and_process_data() -> Tuple[List[Dict], str]:
                     full_instructions.extend(instr)
                     continue
                 for _, row in df.iterrows():
-                    content = f"TAB {tab.upper()}: " + " | ".join([f"{col}: {val}" for col, val in row.items() if pd.notna(val)])
+                    content = f"DATABASE {tab.upper()}: " + " | ".join([f"{col}: {val}" for col, val in row.items() if pd.notna(val)])
                     all_chunks.append({"text": content, "source": tab})
             except: continue
         return all_chunks, "\n".join(full_instructions)
@@ -91,10 +97,15 @@ def create_vector_store(chunks_data: List[Dict]):
     return {"index": index, "chunks": chunks_data, "model": model}
 
 def semantic_search(query: str, vector_store: Dict, top_k: int = 15):
-    # top_k dinaikkan ke 15 agar aturan 'JadwalKu' tidak tenggelam oleh data Jadwal Dosen
     query_vec = vector_store["model"].encode([query], normalize_embeddings=True)
     _, indices = vector_store["index"].search(query_vec.astype('float32'), top_k)
     return [vector_store["chunks"][idx]["text"] for idx in indices[0] if idx < len(vector_store["chunks"])]
+
+def save_to_log(email, question, answer="", duration=0):
+    try:
+        log_url = st.secrets["LOG_URL"]
+        requests.post(log_url, json={"email": email, "question": question, "answer": answer, "duration": f"{duration} detik"}, timeout=5)
+    except: pass
 
 # --- 4. INISIALISASI STATE ---
 if "vector_store" not in st.session_state:
@@ -104,62 +115,90 @@ if "vector_store" not in st.session_state:
         st.session_state.dynamic_sys_prompt = dyn_prompt
 if "chat_history" not in st.session_state: st.session_state.chat_history = []
 if "last_answer" not in st.session_state: st.session_state.last_answer = ""
+if "last_duration" not in st.session_state: st.session_state.last_duration = 0
 
 # --- 5. UI UTAMA ---
-st.markdown("<h1 style='text-align: center;'>🎓 Sivita AI</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; margin-top: -30px;'>🎓 Sivita AI</h1>", unsafe_allow_html=True)
 
 with st.container(border=True):
     email = st.text_input("Email Gmail Anda:", placeholder="nama@gmail.com")
-    if st.button("🔄 Sinkron Ulang Data"):
-        st.cache_data.clear()
-        st.session_state.clear()
-        st.rerun()
+    
+    col_sync, col_reset = st.columns(2)
+    with col_sync:
+        if st.button("🔄 Sinkron Ulang", use_container_width=True):
+            st.cache_data.clear()
+            st.session_state.clear()
+            st.rerun()
+    with col_reset:
+        if st.button("🧹 Hapus Chat", on_click=clear_history, use_container_width=True): pass
 
+    placeholder_animasi = st.empty()
+
+    # --- Tampilan Jawaban Terakhir & Waktu Pencarian ---
     if st.session_state.last_answer:
         st.markdown(f'<div class="answer-box"><strong>🤖 Sivita:</strong><br>{st.session_state.last_answer}</div>', unsafe_allow_html=True)
+        st.caption(f"⏱️ Selesai dalam {st.session_state.last_duration} detik")
 
-    user_query = st.text_area("Masukkan pertanyaan atau kata kunci (Contoh: JadwalKu):", height=100)
-    btn_kirim = st.button("Kirim 🚀", type="primary", use_container_width=True)
+    # Area Input Pertanyaan
+    with st.container(border=True):
+        user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Contoh: JadwalKu", key="user_query_input", height=120)
+        col_send, col_del_q = st.columns([1.5, 1])
+        with col_send:
+            btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
+        with col_del_q:
+            st.button("Hapus Teks 🗑️", on_click=clear_input_only, use_container_width=True)
 
+    # --- 6. LOGIKA PENGOLAHAN ---
     if btn_kirim:
         if not is_valid_email(email):
-            st.error("Email tidak valid!")
+            st.error("Gunakan email @gmail.com")
         elif not user_query:
-            st.warning("Pertanyaan kosong.")
+            st.warning("Silakan tulis pertanyaan Anda.")
         else:
-            with st.spinner("Sivita sedang berpikir..."):
-                try:
-                    # 1. Ambil konteks (Top_K 15 agar aturan sistem ikut terbawa)
+            with placeholder_animasi.container():
+                if lottie_anim: st_lottie(lottie_anim, height=150)
+            
+            start_time = time.time()
+            try:
+                # Cek manual kata kunci JadwalKu agar tidak tertukar dengan data jadwal dosen
+                if "jadwalku" in user_query.lower().strip():
+                    ans_content = (
+                        "Halo Bapak/Ibu Dosen! Untuk menginputkan jadwal perkuliahan, "
+                        "silakan akses formulir melalui tautan berikut:\n\n"
+                        "Akses di Link ini : 🔗 [Klik di Sini](https://docs.google.com/forms/d/e/1FAIpQLSfLEi9C_juiHcZkX7pzElepQmh9DCl9CGEsjvYZ0KMaU_HPhQ/viewform)"
+                    )
+                else:
                     context_list = semantic_search(user_query, st.session_state.vector_store, top_k=15)
                     context_text = "\n".join(context_list)
-                    
-                    # 2. Tambahkan Logika Penegas agar JadwalKu tidak tertukar dengan Jadwal Dosen
-                    # Kami masukkan aturan ini ke dalam prompt sistem secara dinamis
+                    history_text = "\n".join([f"U: {c['u']}\nA: {c['b']}" for c in st.session_state.chat_history[-3:]])
+
                     sys_rules = (
                         f"{st.session_state.dynamic_sys_prompt}\n"
-                        "INSTRUKSI KHUSUS:\n"
-                        "- Jika user mengetik 'JadwalKu' (huruf besar/kecil tidak masalah), Anda WAJIB memberikan link Google Form untuk input jadwal.\n"
-                        "- Jika user bertanya 'Jadwal [Nama Dosen]', cari datanya di TAB JADWALDOSEN.\n"
-                        "- JANGAN memberikan link form input jika user hanya menanyakan jadwal dosen tertentu.\n"
-                        "- Jangan sebutkan 'Google Sheets' sesuai aturan Sivita."
+                        "PENTING: Gunakan DATA REFERENSI. Jangan sebut Google Sheets. "
+                        "Gunakan sapaan 'Sobat Poltesa'."
                     )
 
-                    full_prompt = (
-                        f"{sys_rules}\n\n"
-                        f"DATA REFERENSI:\n{context_text}\n\n"
-                        f"PERTANYAAN: {user_query}"
-                    )
+                    prompt = f"{sys_rules}\n\nDATA:\n{context_text}\n\nHISTORY:\n{history_text}\n\nUSER: {user_query}"
                     
                     llm = ChatOpenAI(
                         model="google/gemini-2.0-flash-lite-001",
                         openai_api_key=st.secrets["OPENROUTER_API_KEY"],
                         openai_api_base="https://openrouter.ai/api/v1",
-                        temperature=0.0 # Temperature 0 agar AI sangat patuh dan tidak berimprovisasi
+                        temperature=0.0
                     )
                     
-                    response = llm.invoke(full_prompt)
-                    st.session_state.last_answer = response.content
-                    st.session_state.chat_history.append({"u": user_query, "b": response.content})
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error: {e}")
+                    response = llm.invoke(prompt)
+                    ans_content = response.content
+                
+                st.session_state.chat_history.append({"u": user_query, "b": ans_content})
+                st.session_state.last_answer = ans_content
+                st.session_state.last_duration = round(time.time() - start_time, 2)
+                
+                save_to_log(email, user_query, ans_content, st.session_state.last_duration)
+                placeholder_animasi.empty()
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+st.caption("Sivita - Virtual Assistant Poltesa @2026")
