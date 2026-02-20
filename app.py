@@ -135,7 +135,7 @@ with st.container(border=True):
             st.session_state.clear()
             st.rerun()
     with col_reset:
-        if st.button("🧹 Hapus Chat", on_click=clear_history, use_container_width=True): pass
+        if st.button("🧹 Hapus Jawaban", on_click=clear_history, use_container_width=True): pass
 
     # --- PENEMPATAN BLOK STATUS (DI BAWAH TOMBOL HAPUS CHAT) ---
     placeholder_status = st.empty()
@@ -153,7 +153,7 @@ with st.container(border=True):
         with col_send:
             btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
         with col_del_q:
-            st.button("Hapus Teks 🗑️", on_click=clear_input_only, use_container_width=True)
+            st.button("Hapus Pertanyaan 🗑️", on_click=clear_input_only, use_container_width=True)
 
     # --- 6. LOGIKA PENGOLAHAN JAWABAN ---
     if btn_kirim:
