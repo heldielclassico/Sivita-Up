@@ -5,11 +5,10 @@ import requests
 import re
 import time
 import numpy as np
-import json
 from typing import List, Dict, Tuple
 from streamlit_lottie import st_lottie
 
-# Import LangChain & AI
+# Import AI Libraries
 from langchain_openai import ChatOpenAI
 from sentence_transformers import SentenceTransformer
 import faiss
@@ -17,7 +16,6 @@ import faiss
 # --- 1. KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="Asisten POLTESA", page_icon="🎓", layout="centered")
 
-# CSS untuk UI
 st.markdown(f"""
     <style>
     #MainMenu {{visibility: hidden;}}
@@ -41,13 +39,18 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. FUNGSI HELPER & ANIMASI ---
-@st.cache_data
+# --- 2. FUNGSI HELPER & MODEL (OPTIMASI MEMORI) ---
+@st.cache_resource
 def load_lottieurl(url: str):
     try:
         r = requests.get(url, timeout=5)
         return r.json() if r.status_code == 200 else None
     except: return None
+
+@st.cache_resource
+def load_embedding_model():
+    # Memuat model sekali saja untuk menghemat RAM
+    return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
 
 lottie_anim = load_lottieurl("https://lottie.host/85590396-981a-466d-961f-f46328325603/6P7qXJ5v6A.json")
 
@@ -63,7 +66,7 @@ def clear_history():
     st.session_state["last_duration"] = 0
 
 # --- 3. LOGIKA DATA & RAG ---
-@st.cache_data(show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_and_process_data() -> Tuple[List[Dict], str]:
     try:
         central_url = st.secrets["SHEET_CENTRAL_URL"]
@@ -89,30 +92,32 @@ def get_and_process_data() -> Tuple[List[Dict], str]:
     except: return [], ""
 
 def create_vector_store(chunks_data: List[Dict]):
-    model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+    model = load_embedding_model()
     texts = [c["text"] for c in chunks_data]
     embeddings = model.encode(texts, normalize_embeddings=True)
     index = faiss.IndexFlatIP(embeddings.shape[1])
     index.add(embeddings.astype('float32'))
-    return {"index": index, "chunks": chunks_data, "model": model}
+    return {"index": index, "chunks": chunks_data}
 
 def semantic_search(query: str, vector_store: Dict, top_k: int = 15):
-    query_vec = vector_store["model"].encode([query], normalize_embeddings=True)
+    model = load_embedding_model()
+    query_vec = model.encode([query], normalize_embeddings=True)
     _, indices = vector_store["index"].search(query_vec.astype('float32'), top_k)
     return [vector_store["chunks"][idx]["text"] for idx in indices[0] if idx < len(vector_store["chunks"])]
 
-def save_to_log(email, question, answer="", duration=0):
-    try:
-        log_url = st.secrets["LOG_URL"]
-        requests.post(log_url, json={"email": email, "question": question, "answer": answer, "duration": f"{duration} detik"}, timeout=5)
-    except: pass
-
-# --- 4. INISIALISASI STATE ---
+# --- 4. INISIALISASI STATE & LOADING SCREEN ---
 if "vector_store" not in st.session_state:
-    raw_data, dyn_prompt = get_and_process_data()
-    if raw_data:
-        st.session_state.vector_store = create_vector_store(raw_data)
-        st.session_state.dynamic_sys_prompt = dyn_prompt
+    with st.container():
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        if lottie_anim: st_lottie(lottie_anim, height=200, key="sync")
+        st.markdown("<p style='text-align: center;'>Menyinkronkan Database Sivita...</p>", unsafe_allow_html=True)
+        
+        raw_data, dyn_prompt = get_and_process_data()
+        if raw_data:
+            st.session_state.vector_store = create_vector_store(raw_data)
+            st.session_state.dynamic_sys_prompt = dyn_prompt
+            st.rerun()
+
 if "chat_history" not in st.session_state: st.session_state.chat_history = []
 if "last_answer" not in st.session_state: st.session_state.last_answer = ""
 if "last_duration" not in st.session_state: st.session_state.last_duration = 0
@@ -127,28 +132,30 @@ with st.container(border=True):
     with col_sync:
         if st.button("🔄 Sinkron Ulang", use_container_width=True):
             st.cache_data.clear()
+            st.cache_resource.clear()
             st.session_state.clear()
             st.rerun()
     with col_reset:
         if st.button("🧹 Hapus Chat", on_click=clear_history, use_container_width=True): pass
 
+    # Animasi saat sedang berpikir (Placeholder)
     placeholder_animasi = st.empty()
 
-    # --- Tampilan Jawaban Terakhir & Waktu Pencarian ---
+    # Tampilan Jawaban Terakhir
     if st.session_state.last_answer:
         st.markdown(f'<div class="answer-box"><strong>🤖 Sivita:</strong><br>{st.session_state.last_answer}</div>', unsafe_allow_html=True)
         st.caption(f"⏱️ Selesai dalam {st.session_state.last_duration} detik")
 
     # Area Input Pertanyaan
     with st.container(border=True):
-        user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Contoh: JadwalKu", key="user_query_input", height=120)
+        user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Ketik di sini...", key="user_query_input", height=120)
         col_send, col_del_q = st.columns([1.5, 1])
         with col_send:
             btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
         with col_del_q:
             st.button("Hapus Teks 🗑️", on_click=clear_input_only, use_container_width=True)
 
-    # --- 6. LOGIKA PENGOLAHAN ---
+    # --- 6. LOGIKA PENGOLAHAN JAWABAN ---
     if btn_kirim:
         if not is_valid_email(email):
             st.error("Gunakan email @gmail.com")
@@ -156,11 +163,12 @@ with st.container(border=True):
             st.warning("Silakan tulis pertanyaan Anda.")
         else:
             with placeholder_animasi.container():
-                if lottie_anim: st_lottie(lottie_anim, height=150)
+                if lottie_anim: st_lottie(lottie_anim, height=150, key="thinking")
+                st.markdown("<p style='text-align: center;'>Sivita sedang mencari data...</p>", unsafe_allow_html=True)
             
             start_time = time.time()
             try:
-                # Cek manual kata kunci JadwalKu agar tidak tertukar dengan data jadwal dosen
+                # Bypass Logika untuk JadwalKu (Prioritas Utama)
                 if "jadwalku" in user_query.lower().strip():
                     ans_content = (
                         "Halo Bapak/Ibu Dosen! Untuk menginputkan jadwal perkuliahan, "
@@ -170,15 +178,14 @@ with st.container(border=True):
                 else:
                     context_list = semantic_search(user_query, st.session_state.vector_store, top_k=15)
                     context_text = "\n".join(context_list)
-                    history_text = "\n".join([f"U: {c['u']}\nA: {c['b']}" for c in st.session_state.chat_history[-3:]])
-
+                    
                     sys_rules = (
                         f"{st.session_state.dynamic_sys_prompt}\n"
                         "PENTING: Gunakan DATA REFERENSI. Jangan sebut Google Sheets. "
                         "Gunakan sapaan 'Sobat Poltesa'."
                     )
 
-                    prompt = f"{sys_rules}\n\nDATA:\n{context_text}\n\nHISTORY:\n{history_text}\n\nUSER: {user_query}"
+                    prompt = f"{sys_rules}\n\nDATA:\n{context_text}\n\nUSER: {user_query}"
                     
                     llm = ChatOpenAI(
                         model="google/gemini-2.0-flash-lite-001",
@@ -190,15 +197,16 @@ with st.container(border=True):
                     response = llm.invoke(prompt)
                     ans_content = response.content
                 
+                # Simpan Hasil
                 st.session_state.chat_history.append({"u": user_query, "b": ans_content})
                 st.session_state.last_answer = ans_content
                 st.session_state.last_duration = round(time.time() - start_time, 2)
                 
-                save_to_log(email, user_query, ans_content, st.session_state.last_duration)
                 placeholder_animasi.empty()
                 st.rerun()
                 
             except Exception as e:
-                st.error(f"Error: {e}")
+                placeholder_animasi.empty()
+                st.error(f"Terjadi kesalahan: {e}")
 
 st.caption("Sivita - Virtual Assistant Poltesa @2026")
