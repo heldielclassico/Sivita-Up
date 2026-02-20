@@ -121,7 +121,7 @@ def create_vector_store(chunks_data: List[Dict]):
         st.error(f"Gagal membangun Vector DB: {e}")
         return None
 
-def semantic_search(query: str, vector_store: Dict, top_k: int = 5):
+def semantic_search(query: str, vector_store: Dict, top_k: int = 15):
     query_vec = vector_store["model"].encode([query], normalize_embeddings=True)
     distances, indices = vector_store["index"].search(query_vec.astype('float32'), top_k)
     results = [vector_store["chunks"][idx]["text"] for idx in indices[0] if idx < len(vector_store["chunks"])]
