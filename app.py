@@ -87,7 +87,7 @@ def get_and_process_data() -> Tuple[List[Dict], str]:
                     continue
                 
                 for _, row in df.iterrows():
-                    # Menambahkan nama TAB agar pencarian kata kunci seperti 'JadwalKu' di tab DATA lebih akurat
+                    # Tambahkan Nama Tab di depan data agar pencarian lebih akurat (Penting untuk data Tendik)
                     content = f"DATABASE {tab.upper()}: " + " | ".join([f"{col}: {val}" for col, val in row.items() if pd.notna(val)])
                     all_chunks.append({"text": content, "source": tab})
             except: continue
@@ -110,8 +110,8 @@ def create_vector_store(chunks_data: List[Dict]):
         st.error(f"Gagal Inisialisasi AI: {e}")
         return None
 
-def semantic_search(query: str, vector_store: Dict, top_k: int = 10):
-    # top_k dinaikkan ke 10 agar instruksi 'JadwalKu' di tab Data selalu terambil
+def semantic_search(query: str, vector_store: Dict, top_k: int = 8):
+    # top_k dinaikkan ke 8 agar data statistik tidak terlewat oleh data lain
     query_vec = vector_store["model"].encode([query], normalize_embeddings=True)
     _, indices = vector_store["index"].search(query_vec.astype('float32'), top_k)
     return [vector_store["chunks"][idx]["text"] for idx in indices[0] if idx < len(vector_store["chunks"])]
@@ -171,7 +171,7 @@ with st.container(border=True):
 
     # Area Input Pertanyaan
     with st.container(border=True):
-        user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Contoh: JadwalKu", key="user_query_input", height=120)
+        user_query = st.text_area("Apa yang ingin Anda tanyakan?", placeholder="Contoh: Berapa jumlah tendik?", key="user_query_input", height=120)
         col_send, col_del_q = st.columns([1.5, 1])
         with col_send:
             btn_kirim = st.button("Kirim Pertanyaan 🚀", use_container_width=True, type="primary")
@@ -191,19 +191,17 @@ with st.container(border=True):
             
             start_time = time.time()
             try:
-                # 1. Ambil Konteks Data (Mencari di Database Excel)
+                # 1. Ambil Konteks Data
                 context_list = semantic_search(user_query, st.session_state.vector_store)
                 context_text = "\n".join(context_list)
                 
                 # 2. Ambil Riwayat Percakapan (3 terakhir)
                 history_text = "\n".join([f"User: {c['u']}\nSivita: {c['b']}" for c in st.session_state.chat_history[-3:]])
                 
-                # 3. Prompt Khusus (Instruksi agar AI patuh pada aturan di dalam Database/Excel)
+                # 3. Prompt Khusus (Aturan 2026-01-22 & Perbaikan Tendik)
                 sys_rules = (
                     f"{st.session_state.dynamic_sys_prompt}\n"
-                    "INSTRUKSI PRIORITAS:\n"
-                    "- Gunakan 'DATA REFERENSI' sebagai sumber utama jawaban.\n"
-                    "- Jika user mengetik kata kunci spesifik seperti 'JadwalKu', cari instruksi dan link tautannya di DATA REFERENSI dan sampaikan persis seperti yang diminta di sana.\n"
+                    "Aturan Penting:\n"
                     "- JANGAN PERNAH menyuruh user melihat Google Sheets untuk info sosial media.\n"
                     "- Jika ditanya jumlah tendik, dosen, atau mahasiswa, cari datanya di bagian DATABASE STATISTIK.\n"
                     "- Gunakan sapaan ramah 'Sobat Poltesa'.\n"
@@ -211,7 +209,7 @@ with st.container(border=True):
 
                 full_prompt = (
                     f"Sistem: {sys_rules}\n\n"
-                    f"DATA REFERENSI (Termasuk Aturan Khusus):\n{context_text}\n\n"
+                    f"DATA REFERENSI:\n{context_text}\n\n"
                     f"RIWAYAT CHAT:\n{history_text}\n\n"
                     f"PERTANYAAN USER: {user_query}"
                 )
@@ -221,7 +219,7 @@ with st.container(border=True):
                     model="google/gemini-2.0-flash-lite-001",
                     openai_api_key=st.secrets["OPENROUTER_API_KEY"],
                     openai_api_base="https://openrouter.ai/api/v1",
-                    temperature=0.1 # Suhu rendah agar AI tidak berimprovisasi dan patuh pada teks Excel
+                    temperature=0.2
                 )
                 
                 response = llm.invoke(full_prompt)
