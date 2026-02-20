@@ -110,7 +110,7 @@ def create_vector_store(chunks_data: List[Dict]):
         st.error(f"Gagal Inisialisasi AI: {e}")
         return None
 
-def semantic_search(query: str, vector_store: Dict, top_k: int = 8):
+def semantic_search(query: str, vector_store: Dict, top_k: int = 15):
     # top_k dinaikkan ke 8 agar data statistik tidak terlewat oleh data lain
     query_vec = vector_store["model"].encode([query], normalize_embeddings=True)
     _, indices = vector_store["index"].search(query_vec.astype('float32'), top_k)
